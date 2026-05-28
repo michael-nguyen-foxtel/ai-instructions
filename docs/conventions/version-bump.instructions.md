@@ -59,6 +59,8 @@ Use the script's output to create the PR:
 
 - **Base branch:** `main`
 - **Head branch:** `<type>/v<newVersion>`
+- **Assignee:** the current user
+- **Labels:** add relevant labels (e.g., `release`, `version-bump`) if they exist in the repo
 
 ## Agent Behaviour
 
