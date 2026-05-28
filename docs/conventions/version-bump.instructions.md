@@ -23,9 +23,12 @@ If context suggests a type (e.g., only dependency updates → patch), suggest it
 
 ### 2. Run the script
 
-Execute the non-interactive version of the script:
+Determine the working directory:
+- If a `node-app/` directory exists at the repo root (web servers), run from there
+- Otherwise, run from the repo root
 
 ```shell
+cd node-app  # only if node-app/ exists
 base_version_bump <patch|minor|major>
 ```
 
