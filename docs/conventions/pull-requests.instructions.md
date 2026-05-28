@@ -47,7 +47,9 @@ When creating a PR title and description:
 2. **Suggest a scope** based on the files changed and ask if it's appropriate
 3. **Ask for related PRs** before finalising the description
 4. **Fill in the description template** with context from the branch's commits and changes
-5. **Pause for final confirmation** before submitting the PR
+5. **Assign the PR** to the current user
+6. **Add relevant labels** if they exist in the repo
+7. **Pause for final confirmation** before submitting the PR
 
 When performing git operations during an open PR:
 
