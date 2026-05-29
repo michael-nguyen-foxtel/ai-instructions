@@ -1,7 +1,6 @@
 ---
-name: 'Version Bump'
-description: 'Guide for performing version bumps and creating the PR'
-applyTo: ''
+name: version-bump
+description: Use when performing version bumps, releasing, or creating version/release PRs.
 ---
 # Version Bump Convention
 

@@ -2,16 +2,20 @@
 
 ## Overview
 
-A single source of truth for coding conventions (commit messages, PR titles/descriptions) that installs into both **Kiro** (`.kiro/steering/`) and **VS Code Copilot** (`.github/instructions/`) instruction paths.
+A single source of truth for coding conventions (commit messages, PR titles/descriptions, branch naming, version bumps) that installs into both **Kiro** (`.kiro/skills/`) and **GitHub Copilot** (`.github/skills/`) as on-demand skills.
+
+Skills are loaded on-demand — the agent sees the metadata at startup but only pulls in the full content when the task is relevant (e.g., creating a commit, opening a PR).
 
 ## Template Structure
 
 ```
 project-templates/conventions/
-├── docs/conventions/
-│   ├── commit-messages.instructions.md   ← source of truth
-│   └── pull-requests.instructions.md     ← source of truth
-├── install-conventions.sh                ← installs into a target project
+├── docs/skills/
+│   ├── commit-messages/SKILL.md
+│   ├── pull-requests/SKILL.md
+│   ├── branch-naming/SKILL.md
+│   └── version-bump/SKILL.md
+├── install-conventions.sh
 └── README.md
 ```
 
@@ -24,77 +28,44 @@ project-templates/conventions/
 ```
 
 This copies the convention files into:
-- `/path/to/your-project/.kiro/steering/*.md` (Kiro steering files)
-- `/path/to/your-project/.github/instructions/*.instructions.md` (Copilot instruction files)
+- `/path/to/your-project/.kiro/skills/<name>/SKILL.md` (Kiro skills)
+- `/path/to/your-project/.github/skills/<name>/SKILL.md` (Copilot skills)
 
-Commit those files with the project. No sync scripts or hooks needed in the project itself.
+Commit those files with the project.
 
 ### Update conventions
 
-1. Edit files in `docs/conventions/` (this template)
+1. Edit files in `docs/skills/` (this template)
 2. Re-run `./install-conventions.sh` for each project you want to update
 
 ### What gets installed in the project
 
 ```
 your-project/
-├── .kiro/steering/
-│   ├── commit-messages.md
-│   └── pull-requests.md
-└── .github/instructions/
-    ├── commit-messages.instructions.md
-    └── pull-requests.instructions.md
+├── .kiro/skills/
+│   ├── commit-messages/SKILL.md
+│   ├── pull-requests/SKILL.md
+│   ├── branch-naming/SKILL.md
+│   └── version-bump/SKILL.md
+└── .github/skills/
+    ├── commit-messages/SKILL.md
+    ├── pull-requests/SKILL.md
+    ├── branch-naming/SKILL.md
+    └── version-bump/SKILL.md
 ```
 
-## How Each Tool Reads Instructions
+## How Each Tool Reads Skills
 
 ### Kiro
 
-Reads `.kiro/steering/*.md` — always-on context for every interaction.
+Reads `.kiro/skills/*/SKILL.md` — metadata loaded at startup, full content pulled in on demand when the agent determines the skill is relevant.
 
-### VS Code Copilot
+### GitHub Copilot
 
-Reads `.github/instructions/*.instructions.md` — supports YAML frontmatter with:
-- `name`: display name in the UI
-- `description`: shown on hover
-- `applyTo`: glob pattern for conditional activation (empty = manual or always-on)
-
-Additionally, VS Code has dedicated settings for commit and PR generation:
-- `github.copilot.chat.commitMessageGeneration.instructions`
-- `github.copilot.chat.pullRequestDescriptionGeneration.instructions`
-
-These can reference the instruction files via the `file` property in `.vscode/settings.json`.
-
-## Conventions Summary
-
-### Commit Messages
-
-```
-type(scope): TICKET | description
-```
-
-- **type** (required): `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `perf`, `test`, `ci`, `build`
-- **scope** (optional): freeform in parentheses
-- **TICKET**: Jira key (e.g., `WEB-1234`) or pseudo-ticket (`WEB-CHORE`, `WEB-BUGFIX`, `WEB-FEATURE`, `WEB-REFACTOR`, `WEB-DOCS`, `WEB-TEST`)
-- **description**: lowercase, imperative mood, no period
-
-### PR Title
-
-Same format as commit messages.
-
-### PR Description
-
-Sections: Summary, Jira reference(s), Related PR(s), Testing, Screenshots (optional).
-
-### Agent Behaviour
-
-- AI pauses for confirmation before finalising PR title, description, and scope
-- AI asks for related PRs before submitting
-- AI does not force-push or rebase during open PRs
-- AI does not merge — left to author via GitHub web app
+Reads `.github/skills/*/SKILL.md` — discoverable by agents and invokable via `/command` in VS Code Chat. Same SKILL.md format with `name` and `description` frontmatter.
 
 ## Maintenance
 
-- Conventions change? Edit `docs/conventions/*.instructions.md` and re-run the install script
-- New convention file? Add it to `docs/conventions/`, the script picks up all `*.instructions.md` files
+- Conventions change? Edit `docs/skills/*/SKILL.md` and re-run the install script
+- New convention? Add a new skill directory under `docs/skills/`
 - New project? Run `./install-conventions.sh /path/to/project`

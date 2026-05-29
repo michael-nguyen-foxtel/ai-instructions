@@ -1,7 +1,6 @@
 ---
-name: 'Branch Naming'
-description: 'Git branch naming conventions'
-applyTo: ''
+name: branch-naming
+description: Use when creating git branches or checking out new branches.
 ---
 # Branch Naming Convention
 

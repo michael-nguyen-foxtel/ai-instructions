@@ -1,7 +1,6 @@
 ---
-name: 'Commit Messages'
-description: 'Commit message format and conventions'
-applyTo: ''
+name: commit-messages
+description: Use when creating commits, writing commit messages, or staging changes.
 ---
 # Commit Message Convention
 
