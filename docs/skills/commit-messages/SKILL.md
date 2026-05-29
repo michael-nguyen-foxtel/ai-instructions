@@ -44,6 +44,12 @@ docs: WEB-DOCS | add API endpoint documentation
 test(player): WEB-TEST | add unit tests for stats table
 ```
 
+## Commit Signing
+
+- **Every commit must be signed.** Unsigned commits will be rejected by branch protection rules.
+- Agents must never run `git commit` directly — this bypasses the user's local signing configuration (GPG or SSH key).
+- Instead, present the staged files and draft commit message for the user to commit manually via their terminal or IDE, which applies their signing key automatically.
+
 ## Agent Behaviour
 
 When generating commit messages:
