@@ -10,32 +10,37 @@ After making code changes, verify they work before presenting the result. Self-c
 ## The Loop
 
 ```
-Make change → Lint → Test → Pass? → Done
-                              ↓ Fail
-                     Diagnose → Fix → Test → Pass? → Done
-                                                ↓ Fail (attempt 2)
-                                       Fix → Test → Pass? → Done
-                                                        ↓ Fail (attempt 3)
-                                               STOP. Report what's failing and why.
+Make change → Format → Lint → Test → Pass? → Done
+                                       ↓ Fail
+                              Diagnose → Fix → Test → Pass? → Done
+                                                         ↓ Fail (attempt 2)
+                                                Fix → Test → Pass? → Done
+                                                                 ↓ Fail (attempt 3)
+                                                        STOP. Report what's failing and why.
 ```
 
 ## Rules
 
 1. **Always run verification after code changes.** Don't present "done" without evidence.
-2. **Run the right commands for the repo.** Check package.json scripts. Common patterns:
+2. **Format first.** Run the project's formatter on changed files before linting. Detect from the repo:
+   - If `prettier` is a dependency or `.prettierrc` exists → `npx prettier --write <changed files>`
+   - If `eslint --fix` is available → `npm run lint -- --fix` or `npm run lint-js -- --fix`
+   - If `.editorconfig` exists and no prettier → rely on the lint step (eslint enforces formatting rules)
+   - Run on changed files only, not the entire repo
+3. **Run the right commands for the repo.** Check package.json scripts. Common patterns:
    - `npm run lint` or `npm run lint-js`
    - `npm test` (may be in a subdirectory like `node-app/`)
    - `npm run build` (only if relevant to the change)
-3. **If lint fails:** fix the lint issues yourself. These are mechanical.
-4. **If tests fail:** read the failure output. Determine if:
+4. **If lint fails:** fix the lint issues yourself. These are mechanical.
+5. **If tests fail:** read the failure output. Determine if:
    - The failure is caused by your change → fix it
    - The failure is pre-existing (flaky/unrelated) → note it but don't block on it
-5. **Max 3 fix attempts.** After 3 failed corrections, stop and report:
+6. **Max 3 fix attempts.** After 3 failed corrections, stop and report:
    - What's failing
    - What you tried
    - Your best hypothesis for the root cause
-6. **Don't run tests you can't run.** If a test requires Docker, a browser, VPN, or credentials you don't have, skip it and note what was skipped.
-7. **Scope verification to the change.** If you touched one file, run that file's tests if possible (e.g. `npm test -- --grep "rate-limiter"`). Full suite only if the change is cross-cutting.
+7. **Don't run tests you can't run.** If a test requires Docker, a browser, VPN, or credentials you don't have, skip it and note what was skipped.
+8. **Scope verification to the change.** If you touched one file, run that file's tests if possible (e.g. `npm test -- --grep "rate-limiter"`). Full suite only if the change is cross-cutting.
 
 ## What to Report on Success
 
