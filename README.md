@@ -1,71 +1,75 @@
-# AI Coding Conventions Template
+# AI Instructions
 
-## Overview
+Version-controlled snapshot of my AI agent skills and steering configuration.
 
-A single source of truth for coding conventions (commit messages, PR titles/descriptions, branch naming, version bumps) that installs into both **Kiro** (`.kiro/skills/`) and **GitHub Copilot** (`.github/skills/`) as on-demand skills.
-
-Skills are loaded on-demand — the agent sees the metadata at startup but only pulls in the full content when the task is relevant (e.g., creating a commit, opening a PR).
-
-## Template Structure
+## Architecture
 
 ```
-project-templates/conventions/
-├── docs/skills/
-│   ├── commit-messages/SKILL.md
-│   ├── pull-requests/SKILL.md
-│   ├── branch-naming/SKILL.md
-│   └── version-bump/SKILL.md
-├── install-conventions.sh
+~/.kiro/skills/     ← LIVE (edit here, immediate effect in Kiro CLI + IDE)
+~/.kiro/steering/   ← LIVE (always-on context for all sessions)
+         │
+         │  rsync (periodic checkpoint)
+         ▼
+this repo           ← VERSION HISTORY (git log of how skills evolve)
+```
+
+**This repo is not a distribution mechanism.** It's a versioned backup of what lives at `~/.kiro/`.
+
+## Structure
+
+```
+├── skills/          ← mirrors ~/.kiro/skills/ (all universal skills)
+├── steering/        ← mirrors ~/.kiro/steering/ (always-on context)
+├── copilot/         ← lightweight Copilot instruction files
+├── install.sh       ← sets up .github/instructions/ in a new repo
 └── README.md
 ```
 
-## Usage
+## Workflow
 
-### Install conventions into a project
+### Edit skills (immediate effect)
+
+Edit directly in `~/.kiro/skills/`. Changes are live immediately in Kiro CLI and Kiro IDE.
+
+### Checkpoint to git
 
 ```bash
-./install-conventions.sh /path/to/your-project
+cd ~/Documents/SourceCode/ai-instructions
+rsync -av --delete ~/.kiro/skills/ ./skills/
+rsync -av --delete ~/.kiro/steering/ ./steering/
+git add -A && git commit -m "sync: $(date +%Y-%m-%d)"
+git push
 ```
 
-This copies the convention files into:
-- `/path/to/your-project/.kiro/skills/<name>/SKILL.md` (Kiro skills)
-- `/path/to/your-project/.github/skills/<name>/SKILL.md` (Copilot skills)
+### Set up a new repo for Copilot
 
-Commit those files with the project.
-
-### Update conventions
-
-1. Edit files in `docs/skills/` (this template)
-2. Re-run `./install-conventions.sh` for each project you want to update
-
-### What gets installed in the project
-
-```
-your-project/
-├── .kiro/skills/
-│   ├── commit-messages/SKILL.md
-│   ├── pull-requests/SKILL.md
-│   ├── branch-naming/SKILL.md
-│   └── version-bump/SKILL.md
-└── .github/skills/
-    ├── commit-messages/SKILL.md
-    ├── pull-requests/SKILL.md
-    ├── branch-naming/SKILL.md
-    └── version-bump/SKILL.md
+```bash
+./install.sh /path/to/your-project
 ```
 
-## How Each Tool Reads Skills
+This copies the 3 Copilot instruction files into `.github/instructions/`.
 
-### Kiro
+## Skill Types
 
-Reads `.kiro/skills/*/SKILL.md` — metadata loaded at startup, full content pulled in on demand when the agent determines the skill is relevant.
+| Type | Fires when | Context cost |
+|------|-----------|--------------|
+| **User-invoked** | You type it manually | Zero |
+| **Model-invoked** | Agent fires autonomously or composed by other skills | Always loaded |
 
-### GitHub Copilot
+## Key Skills
 
-Reads `.github/skills/*/SKILL.md` — discoverable by agents and invokable via `/command` in VS Code Chat. Same SKILL.md format with `name` and `description` frontmatter.
-
-## Maintenance
-
-- Conventions change? Edit `docs/skills/*/SKILL.md` and re-run the install script
-- New convention? Add a new skill directory under `docs/skills/`
-- New project? Run `./install-conventions.sh /path/to/project`
+| Skill | Type | Purpose |
+|-------|------|---------|
+| grilling | model | Reusable interview loop |
+| grill-me | user | Thin wrapper — runs /grilling |
+| grill-with-docs | user | Grilling + domain-modeling (updates CONTEXT.md) |
+| domain-modeling | model | Maintains CONTEXT.md glossary + ADRs |
+| tdd | model | Red-green-refactor with seam discipline |
+| prototype | model | Throwaway code to answer design questions |
+| research | model | Background agent, primary sources |
+| build-verify | model | Post-change lint + test loop |
+| diagnosing-bugs | model | Systematic diagnosis, never guess-and-patch |
+| codebase-design | model | Deep modules vocabulary |
+| improve-codebase-architecture | user | HTML report of deepening opportunities |
+| deploy-fiso | user | FISO deployment automation |
+| writing-great-skills | user | Meta-reference for writing skills well |

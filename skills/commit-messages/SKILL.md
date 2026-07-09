@@ -1,6 +1,6 @@
 ---
 name: commit-messages
-description: Use when creating commits, writing commit messages, or staging changes.
+description: Use when creating commits, writing commit messages, staging changes, or pushing code to a GitHub repository.
 ---
 # Commit Message Convention
 
@@ -47,8 +47,28 @@ test(player): WEB-TEST | add unit tests for stats table
 ## Commit Signing
 
 - **Every commit must be signed.** Unsigned commits will be rejected by branch protection rules.
-- Agents must never run `git commit` directly — this bypasses the user's local signing configuration (GPG or SSH key).
-- Instead, present the staged files and draft commit message for the user to commit manually via their terminal or IDE, which applies their signing key automatically.
+- Agents must never create commits via any method that bypasses the user's local signing configuration.
+
+### Prohibited tools for creating commits
+
+**Never use these GitHub MCP tools to create or push commits:**
+- `create_or_update_file` — commits via the GitHub API without a signature
+- `push_files` — commits via the GitHub API without a signature
+
+These produce unsigned commits that will be blocked by branch protection.
+
+### What to do instead
+
+1. Present the full file content or diff to the user
+2. Provide the git commands (branch, stage, commit message) for copy-paste
+3. The user runs `git commit` locally, which applies their GPG/SSH signing key
+4. The user pushes the branch
+
+### GitHub MCP tools that are safe to use
+
+- `get_file_contents`, `list_commits`, `list_pull_requests`, `get_pull_request`, etc. (read-only)
+- `create_branch` (does not create a commit)
+- `create_pull_request` (does not create a commit)
 
 ## Agent Behaviour
 

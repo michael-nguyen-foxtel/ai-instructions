@@ -1,7 +1,7 @@
 ---
-name: branch-naming
-description: Use when creating git branches or checking out new branches.
+applyTo: "**"
 ---
+
 # Branch Naming Convention
 
 ## Format
@@ -25,10 +25,3 @@ fix/WEB-5678-race-condition-request-handler
 chore/WEB-4612-remove-react-hammer-js
 refactor/WEB-REFACTOR-extract-token-validation
 ```
-
-## Agent Behaviour
-
-When creating a branch:
-
-1. **Suggest a branch name** following this convention and pause for confirmation
-2. **Ask for the Jira ticket** if not already known from context
