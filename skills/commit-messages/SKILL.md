@@ -47,22 +47,21 @@ test(player): WEB-TEST | add unit tests for stats table
 ## Commit Signing
 
 - **Every commit must be signed.** Unsigned commits will be rejected by branch protection rules.
-- Agents must never create commits via any method that bypasses the user's local signing configuration.
+- SSH signing is configured globally — shell `git commit` commands will be signed automatically.
 
-### Prohibited tools for creating commits
+### Safe ways to create commits
 
-**Never use these GitHub MCP tools to create or push commits:**
+- **Shell `git commit`** — ✅ signed automatically via ssh-agent
+- **`base_version_bump` script** — ✅ uses shell git, signed automatically
+- **Kiro/agent terminal** — ✅ inherits the user's git config
+
+### Prohibited tools (bypass signing)
+
+**Never use these GitHub MCP tools to create commits:**
 - `create_or_update_file` — commits via the GitHub API without a signature
 - `push_files` — commits via the GitHub API without a signature
 
 These produce unsigned commits that will be blocked by branch protection.
-
-### What to do instead
-
-1. Present the full file content or diff to the user
-2. Provide the git commands (branch, stage, commit message) for copy-paste
-3. The user runs `git commit` locally, which applies their GPG/SSH signing key
-4. The user pushes the branch
 
 ### GitHub MCP tools that are safe to use
 
@@ -76,6 +75,7 @@ When generating commit messages:
 
 1. **Suggest a scope** based on the files changed and ask if it's appropriate
 2. **Ask for the Jira ticket** if not already known from context
-3. **Draft the commit message** and pause for confirmation before proceeding
-4. **Do not run `git commit`** — present the staged files and draft commit message for the user to commit manually (to preserve commit signing)
-5. **Do not force-push or rebase** during open pull requests — add new commits instead
+3. **Draft the commit message** and pause for confirmation before committing
+4. **Stage specific files** — prefer `git add <files>` over `git add .`
+5. **Commit via shell** — `git commit -m "message"` (signed automatically)
+6. **Do not force-push or rebase** during open pull requests — add new commits instead
