@@ -10,7 +10,10 @@ As decisions crystallise, update `CONTEXT.md` with any new or sharpened domain t
 
 At the end:
 
-1. **Produce a spec file** (`<TICKET>-SPEC.md`) in the repo root with implementation details.
+1. **Produce a spec file** (`<TICKET>-SPEC.md`) in the repo root with implementation details. Include a "Manual Testing" section at the end with:
+   - How to run the server/app locally
+   - Curl commands, browser steps, or UI actions to verify the change
+   - Expected outcomes (what you should see when it works vs when it doesn't)
 
 2. **Produce a ready-to-paste prompt** for Kiro IDE or VS Code. **Plain text only — no backticks, no markdown formatting** (IDE chat inputs break on markdown). Include:
    - The spec file to follow
