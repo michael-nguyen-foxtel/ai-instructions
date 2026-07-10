@@ -77,5 +77,6 @@ When generating commit messages:
 2. **Ask for the Jira ticket** if not already known from context
 3. **Draft the commit message** and pause for confirmation before committing
 4. **Stage specific files** — prefer `git add <files>` over `git add .`
-5. **Commit via shell** — `git commit -m "message"` (signed automatically)
-6. **Do not force-push or rebase** during open pull requests — add new commits instead
+5. **Clean up working documents** — delete any `*-SPEC.md` files before the final commit. These are working documents from the planning phase, not durable artifacts. `CONTEXT.md` and `docs/adr/` stay.
+6. **Commit via shell** — `git commit -m "message"` (signed automatically)
+7. **Do not force-push or rebase** during open pull requests — add new commits instead
