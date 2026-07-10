@@ -10,11 +10,17 @@ As decisions crystallise, update `CONTEXT.md` with any new or sharpened domain t
 
 At the end:
 
-1. **Produce a spec file** (`<TICKET>-SPEC.md`) with implementation details.
+1. **Produce a spec file** (`<TICKET>-SPEC.md`) in the repo root with implementation details.
 
-2. **Produce a ready-to-paste prompt** for Kiro IDE or VS Code. This should be a self-contained message the user can copy directly into the editor's chat. Format:
+2. **Produce a ready-to-paste prompt** for Kiro IDE or VS Code. **Plain text only — no backticks, no markdown formatting** (IDE chat inputs break on markdown). Include:
+   - The spec file to follow
+   - Reference to CONTEXT.md and docs/adr/
+   - Which branch to work on (format: `type/TICKET-short-description`)
+   - Any repo-specific patterns to follow (test locations, existing utilities)
+   - Request a Mermaid architecture diagram if the change involves data flow or middleware
 
-   > Implement the spec in `<TICKET>-SPEC.md`. All design decisions are resolved in `CONTEXT.md`. [any specific instructions about patterns to follow, test locations, etc.]. Generate a Mermaid architecture diagram before starting.
+   Example:
+   > Implement the spec in WEB-4629-SPEC.md. All design decisions are resolved in CONTEXT.md and docs/adr/. Work on branch feat/WEB-4629-carding-name-filter. Follow the spec exactly. Use the existing test patterns in node-app/test/ for the unit tests. Generate a Mermaid architecture diagram of the middleware chain before starting.
 
 3. **Recommend a Kiro IDE mode** based on what was resolved:
    - **Plain session** (default) — decisions resolved, paste the prompt directly.

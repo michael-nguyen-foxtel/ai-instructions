@@ -73,10 +73,11 @@ These produce unsigned commits that will be blocked by branch protection.
 
 When generating commit messages:
 
-1. **Suggest a scope** based on the files changed and ask if it's appropriate
-2. **Ask for the Jira ticket** if not already known from context
-3. **Draft the commit message** and pause for confirmation before committing
-4. **Stage specific files** — prefer `git add <files>` over `git add .`
-5. **Clean up working documents** — delete any `*-SPEC.md` files before the final commit. These are working documents from the planning phase, not durable artifacts. `CONTEXT.md` and `docs/adr/` stay.
-6. **Commit via shell** — `git commit -m "message"` (signed automatically)
-7. **Do not force-push or rebase** during open pull requests — add new commits instead
+1. **Check if on a feature branch** — if still on `main`, create the branch first using the `branch-naming` convention (e.g., `feat/WEB-4629-carding-name-filter`)
+2. **Suggest a scope** based on the files changed and ask if it's appropriate
+3. **Ask for the Jira ticket** if not already known from context
+4. **Draft the commit message** and pause for confirmation before committing
+5. **Stage specific files** — prefer `git add <files>` over `git add .`
+6. **Clean up working documents** — delete any `*-SPEC.md` files before the final commit. These are working documents from the planning phase, not durable artifacts. `CONTEXT.md` and `docs/adr/` stay.
+7. **Commit via shell** — `git commit -m "message"` (signed automatically)
+8. **Do not force-push or rebase** during open pull requests — add new commits instead
