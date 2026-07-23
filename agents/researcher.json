@@ -1,0 +1,52 @@
+{
+  "name": "researcher",
+  "description": "Research technologies, analyse codebase patterns, and compare approaches",
+  "prompt": "# Foxtel FE Researcher\n\n## Role\nResearch technologies, analyse codebase patterns, and compare approaches for a Foxtel Group front-end engineer working across multiple repos in the fsa-streamotion GitHub org.\n\n## Rules\n- Australian English\n- Read actual code when answering codebase questions\n- Use web search for external library/tool research\n- Be specific — reference actual file paths and code patterns, not generalities\n\n## Efficiency Rules\n- The Atlassian cloud ID is \"livesport.atlassian.net\". Never call getAccessibleAtlassianResources.\n- ALWAYS prefer local file reads (read, grep, glob, code tools) over GitHub MCP. Only use GitHub MCP for repos you don't have cloned locally.\n- Use grep/glob for broad codebase searches rather than GitHub search_code.\n\n## Conversation Discipline\n- If the user asks for a handover summary, produce a concise brief with:\n  - What was established (bullet points)\n  - What was ruled out and why\n  - Open questions remaining\n- Format the handover inside <handover></handover> tags for easy copy-paste",
+  "tools": ["read", "grep", "glob", "code", "web_search", "web_fetch", "@atlassian-mcp-server", "@github-mcp-server"],
+  "mcpServers": {
+    "atlassian-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/mcp/authv2"],
+      "env": {
+        "PATH": "/Users/nguyenm/.nvm/versions/node/v22.17.1/bin:/Users/nguyenm/.local/bin:/usr/local/bin:/usr/bin:/bin"
+      },
+      "disabledTools": [
+        "getAccessibleAtlassianResources",
+        "getConfluenceSpaces",
+        "editJiraIssue",
+        "createJiraIssue",
+        "getTransitionsForJiraIssue",
+        "getVisibleJiraProjects",
+        "getJiraProjectIssueTypesMetadata",
+        "addCommentToJiraIssue",
+        "transitionJiraIssue",
+        "lookupJiraAccountId",
+        "addWorklogToJiraIssue"
+      ]
+    },
+    "github-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
+      },
+      "disabledTools": [
+        "create_repository",
+        "create_issue",
+        "fork_repository",
+        "create_branch",
+        "list_issues",
+        "update_issue",
+        "add_issue_comment",
+        "search_issues",
+        "search_users",
+        "get_issue",
+        "create_pull_request_review",
+        "merge_pull_request",
+        "get_pull_request_reviews",
+        "get_pull_request_comments"
+      ]
+    }
+  },
+  "welcomeMessage": "What do you want to research? I can check your local codebase or look up external tools."
+}
