@@ -36,4 +36,10 @@ feat(player): WEB-1234 | add series stats table widget
 fix: WEB-5678 | resolve race condition in request handler
 chore: WEB-CHORE | update dependencies
 refactor(auth): WEB-REFACTOR | extract token validation into utility
+docs: WEB-DOCS | add API endpoint documentation
+test(player): WEB-TEST | add unit tests for stats table
 ```
+
+## Commit Signing
+
+Every commit must be signed. Stage specific files (`git add <files>`) rather than `git add .`.

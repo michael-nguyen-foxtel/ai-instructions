@@ -57,11 +57,14 @@ test(player): WEB-TEST | add unit tests for stats table
 
 ### Prohibited tools (bypass signing)
 
-**Never use these GitHub MCP tools to create commits:**
-- `create_or_update_file` — commits via the GitHub API without a signature
-- `push_files` — commits via the GitHub API without a signature
+**Never use these tools to create commits:**
+- `git_commit` (git MCP tool) — does not pass `-S` flag, produces unsigned commits
+- `create_or_update_file` (GitHub MCP tool) — commits via the GitHub API without a signature
+- `push_files` (GitHub MCP tool) — commits via the GitHub API without a signature
 
 These produce unsigned commits that will be blocked by branch protection.
+
+**This rule overrides the general "prefer dedicated tools over shell" guideline.** Signing requires shell execution — no MCP commit tool supports it.
 
 ### GitHub MCP tools that are safe to use
 

@@ -34,6 +34,7 @@ type(scope): TICKET | description
 ## Rules
 
 - Do NOT rebase or force-push during an open pull request
-- If you need latest `main`, merge it into the branch
+- If you need latest `main`, merge it into the branch — never rebase
 - Add new commits when addressing review feedback
 - Assign the PR to the current user
+- Review the diff before creating the PR — fix any critical issues first

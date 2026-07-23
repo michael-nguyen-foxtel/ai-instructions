@@ -15,6 +15,32 @@ Produce a self-contained handoff document summarising the current session so a f
 - Work needs to continue in Kiro IDE after research/planning in CLI
 - User explicitly asks for a handoff
 
+## Auto-Trigger (suggest a handoff when)
+
+- A blocker is hit that requires human action (access request, waiting on another team, manual approval)
+- A multi-PR sequence reaches a natural pause point (one PR done, next blocked on external input)
+- The session has produced significant state that would be expensive to re-derive (discovered file paths, API shapes, env details)
+- Context compaction is imminent (session is very long)
+
+When auto-triggering, say: "This is a good handoff point because [reason]. Let me save state." Then produce the handoff doc.
+
+## Where to Save
+
+Save handoffs to `/Users/nguyenm/Documents/SourceCode/.kiro/handoffs/` with the format:
+```
+YYYY-MM-DD-<ticket-or-topic>.md
+```
+
+This location is checked by the resume pattern in task-routing. Do NOT save to `/tmp/` — those are lost on reboot.
+
+## Lifecycle
+
+When all work from a handoff is complete:
+- Add `> Status: done` as the first line after the title
+- The resume pattern in task-routing will skip handoffs marked as done
+- Don't delete them — they serve as a lightweight history of completed work
+- No need to move them to an archive folder
+
 ## Rules
 
 - The document must be self-contained — no external context needed to understand it
@@ -27,7 +53,7 @@ Produce a self-contained handoff document summarising the current session so a f
 
 ## Output Format
 
-Save to `/tmp/handoff-[brief-topic].md` and display the path.
+Save to `/Users/nguyenm/Documents/SourceCode/.kiro/handoffs/YYYY-MM-DD-<topic>.md` and display the path.
 
 ```markdown
 ## Handoff: [Brief Title]
@@ -66,5 +92,5 @@ Save to `/tmp/handoff-[brief-topic].md` and display the path.
 2. Compress — remove false starts, redundant exploration, and resolved tangents
 3. Preserve — keep all facts, file paths, commands, and decisions
 4. Structure — write in the format above
-5. Save to temp directory
+5. Save to the handoffs directory: `/Users/nguyenm/Documents/SourceCode/.kiro/handoffs/YYYY-MM-DD-<topic>.md`
 6. Tell the user the file path and how to use it in the next session

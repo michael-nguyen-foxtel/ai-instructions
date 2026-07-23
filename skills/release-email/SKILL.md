@@ -12,13 +12,24 @@ Generate a formatted release notification email ready to paste into Outlook/Team
 
 | Input | Required | Example |
 |-------|----------|---------|
-| Product | Yes | `watchafl` or `hubbl` |
+| Product | Yes (can be inferred from repo) | `watchafl` or `hubbl` |
 | Jira version ID(s) or URL(s) | Yes | `80104` or multiple: `80104, 80105` |
 | Released version name(s) | Yes | `Hawk Web Server v7.3.7` or multiple: `Hawk Web Server v7.3.7, Hawk Widgets v4.2.0` |
 | Rollback version name(s) | Yes | `Hawk Web Server v7.3.5` or multiple: `Hawk Web Server v7.3.5, Hawk Widgets v4.1.8` |
 | Date override | No | Defaults to today's date formatted as `DD Month YYYY` |
 
 Multiple repos can be released together (e.g., Hawk Widgets + Hawk Web Server for a single WatchAFL/WatchNRL release, or Magneto Widgets + Magneto Web Server for Hubbl). In this case, all version IDs are queried and tickets are combined into a single email.
+
+### Repo → Product auto-mapping
+
+If the repo is known, infer the product automatically — don't ask:
+
+| Repo | Product |
+|------|---------|
+| hawk-web-server | `watchafl` |
+| hawk-widgets | `watchafl` |
+| magneto-web-server | `hubbl` |
+| magneto-widgets | `hubbl` |
 
 ## Product Configuration
 

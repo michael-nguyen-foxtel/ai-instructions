@@ -5,6 +5,18 @@ description: Investigate a question against high-trust primary sources and captu
 
 Spin up a **background agent** (sub-agent) to do the research, so you keep working while it reads.
 
+## Tool Selection
+
+When looking things up externally, pick the right tool:
+
+| Need | Tool | Examples |
+|------|------|----------|
+| API signatures, method params, code examples, library usage patterns | **Context7** (`resolve-library-id` → `query-docs`) | "How does Braze `addAlias` work?", "React Router v7 loader API", "Webpack 5 module federation config" |
+| Infrastructure URLs, breaking change confirmations, ecosystem facts, error diagnosis | **Web search** | "What's the Braze CDN endpoint?", "Did Next.js 15 drop pages router?", "AWS ALB 502 causes" |
+| First-party source code, changelogs, GitHub issues | **Web search** (to find) then **web_fetch** (to read) | Finding a specific GitHub issue or changelog entry |
+
+**Default to Context7 first** when the question is about a library's API — it returns verified docs with code snippets. Fall back to web search only if Context7 has no coverage or the question is about infrastructure/URLs/ecosystem facts rather than "how do I use this API?".
+
 Its job:
 
 1. Investigate the question against **primary sources** — official docs, source code, specs, first-party APIs — not secondary write-ups of them. Follow every claim back to the source that owns it.
