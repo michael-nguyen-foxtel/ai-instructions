@@ -117,6 +117,8 @@ Run `/implement-from-spec .kiro/specs/<TICKET>-SPEC.md`
 
 Each worktree is self-contained: its own branch, its own `node_modules`, its own spec. A Kiro CLI session in that directory has everything it needs to implement without reading from another worktree.
 
+**Note:** `.kiro/` is gitignored — specs in worktrees are ephemeral session artifacts, not committed. This is fine: the Jira ticket holds the durable acceptance criteria, and the spec is a working document for the implementing agent only.
+
 **Cleanup:** After a ticket's PR is merged, remove its worktree: `git worktree remove ../<worktree-dir>`
 
 ## Rules
