@@ -171,3 +171,34 @@ git push
 ```
 
 This copies the 3 Copilot instruction files into `.github/instructions/`.
+
+---
+
+## Parallel Work with Git Worktrees
+
+When `/to-tickets` produces independent tickets (no blocking edges between them), you can implement them in parallel using git worktrees:
+
+```bash
+# From the repo root — each ticket gets its own worktree
+git worktree add ../quicksilver-WEB-4601-ts-foundation -b feat/WEB-4601-ts-foundation
+git worktree add ../quicksilver-WEB-4602-vitest -b feat/WEB-4602-vitest
+
+# Each worktree is a full checkout — run install in each
+cd ../quicksilver-WEB-4601-ts-foundation && pnpm install
+cd ../quicksilver-WEB-4602-vitest && pnpm install
+```
+
+Then run separate Kiro CLI sessions in each directory. No branch switching, no stale state.
+
+**Cleanup after merge:**
+```bash
+git worktree remove ../quicksilver-WEB-4601-ts-foundation
+```
+
+---
+
+## Acknowledgements
+
+This workflow is heavily based on [Matt Pocock's Skills](https://github.com/mattpocock/skills) ([aihero.dev/skills](https://www.aihero.dev/skills)) — a practical skill system for engineers who want to use AI without giving up their standards. The main flow (grill → spec → tickets → implement → review), the rounds-based grilling, vertical-slice tickets with blocking edges, wayfinder for large efforts, and the writing-for-agents reference are all adapted from his work.
+
+MIT licensed. Adapted for Jira, Kiro CLI, and our team's conventions.

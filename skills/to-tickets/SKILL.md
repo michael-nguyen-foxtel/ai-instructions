@@ -78,6 +78,27 @@ After creating all tickets, link them as sub-tasks to the parent issue if one ex
 
 Avoid specific file paths or code snippets in ticket descriptions — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, schema, type shape), inline it and note it came from a prototype.
 
+### 6. Offer parallel worktrees
+
+After publishing, check if any tickets share no blocking edges (i.e., they can start simultaneously). If two or more tickets are independent, offer:
+
+> "Tickets X and Y have no blocking edges — want me to set up worktrees so they can be implemented in parallel?"
+
+If accepted, create worktrees:
+
+```bash
+# From the repo root (main worktree stays on default branch)
+git worktree add ../<repo>-<TICKET>-<slug> -b <type>/<TICKET>-<slug>
+```
+
+Naming: `<repo>-<TICKET>-<short-slug>` (e.g., `quicksilver-WEB-4601-ts-foundation`).
+
+After creating each worktree, run the repo's install command inside it so it's ready to implement immediately.
+
+Each parallel ticket gets its own Kiro CLI session operating in its own worktree directory — no branch switching, no stale `node_modules`.
+
+**Cleanup:** After a ticket's PR is merged, remove its worktree: `git worktree remove ../<worktree-dir>`
+
 ## Rules
 
 - Always quiz the user before publishing. Never publish unreviewed tickets.

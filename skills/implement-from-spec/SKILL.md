@@ -20,18 +20,20 @@ Before starting, verify:
 
 Before creating or switching to a working branch:
 
-1. **Check current branch** — `git branch --show-current`
-2. **If on a feature branch from previous work**: ask the user if they want to continue on it or start fresh
-3. **If starting fresh (or on default branch)**:
+1. **Detect worktree** — `git rev-parse --show-toplevel` and `git worktree list`
+   - If you're already in a worktree (path differs from the main worktree), skip branch creation — you're already on the right branch. Jump to step 4.
+2. **Check current branch** — `git branch --show-current`
+3. **If on a feature branch from previous work**: ask the user if they want to continue on it or start fresh
+4. **If starting fresh (or on default branch)**:
    - Determine the default branch (`git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'`)
    - Switch to it: `git checkout <default>`
    - Pull latest: `git pull`
    - Create the working branch: `git checkout -b <type>/<TICKET>-<short-description>`
-4. **Check if dependencies are stale**:
+5. **Check if dependencies are stale**:
    - Compare the lockfile against what's installed: `git diff HEAD@{1} --name-only | grep -E 'package-lock\.json|yarn\.lock|pnpm-lock\.yaml'`
    - If the lockfile changed on pull (or `node_modules` doesn't exist): run the repo's install command
    - If the lockfile didn't change and `node_modules` exists: skip install
-5. **Verify Node version** against `.nvmrc` (warn if mismatch, don't block)
+6. **Verify Node version** against `.nvmrc` (warn if mismatch, don't block)
 
 If any prerequisite fails, tell the user what's missing and stop.
 
