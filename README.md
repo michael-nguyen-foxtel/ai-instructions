@@ -21,7 +21,9 @@ this repo           ← VERSION HISTORY (git log of how skills evolve)
 ├── skills/          ← mirrors ~/.kiro/skills/ (all universal skills)
 ├── steering/        ← mirrors ~/.kiro/steering/ (always-on context)
 ├── copilot/         ← lightweight Copilot instruction files
-├── install.sh       ← sets up .github/instructions/ in a new repo
+├── agents/          ← Kiro CLI subagent definitions
+├── setup.sh         ← installs skills into ~/.kiro/ (for Kiro CLI)
+├── install.sh       ← installs Copilot instructions into a repo
 └── README.md
 ```
 
@@ -164,13 +166,32 @@ git add -A && git commit -m "sync: $(date +%Y-%m-%d)"
 git push
 ```
 
-### Set up a new repo for Copilot
+## Installation
+
+### Install skills into Kiro CLI
+
+```bash
+git clone https://github.com/michael-nguyen-foxtel/ai-instructions.git
+cd ai-instructions
+./setup.sh
+```
+
+This installs **universal skills only** (grilling, specs, tickets, TDD, prototyping, etc.) into `~/.kiro/skills/`. Team-specific skills (deploys, release emails) are excluded by default.
+
+```bash
+# If you're on the same team and want everything:
+./setup.sh --all
+```
+
+After installing, review `~/.kiro/skills/` and edit anything that references team-specific config (Jira project keys, cloud IDs, etc.) to match your setup.
+
+### Install Copilot instructions into a repo
 
 ```bash
 ./install.sh /path/to/your-project
 ```
 
-This copies the 3 Copilot instruction files into `.github/instructions/`.
+This copies the 5 Copilot instruction files into `.github/instructions/`.
 
 ---
 
