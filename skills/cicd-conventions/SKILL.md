@@ -23,6 +23,10 @@ description: CI/CD and infrastructure conventions. Use when working on GitHub Ac
 - Hardcoded env values that should be secrets/vars
 - Overly broad cache keys (cache poisoning risk)
 - No artifact retention policy
+- Shared workflow versions pinned to a branch name instead of a release tag
+- Docker steps missing `GITHUB_TOKEN` env (breaks auth to GitHub Container Registry / Packages)
+- Feature detection that requires install (e.g., `pnpm run | grep`) — use `node -e` to read package.json directly
+- Scripts named for a tool they no longer use (e.g., `test:jest` running Vitest) — can't rename if shared workflows call by name, but flag as tech debt
 
 ## AWS
 
