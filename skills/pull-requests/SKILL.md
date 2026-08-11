@@ -71,3 +71,22 @@ When performing git operations during an open PR:
 - **Do not merge** — leave merging to the author via the GitHub web app.
 - When addressing review feedback, use descriptive commit messages (e.g., `fix: WEB-1234 | address PR feedback - extract helper function`).
 - If the user needs latest `main`, merge it into the branch — never rebase.
+
+## Merging Multiple PRs in Sequence
+
+When merging a series of PRs that touch overlapping files (e.g., `package.json`, lockfiles, shared config):
+
+1. **Merge the first PR** on GitHub (via the web UI or `gh pr merge`)
+2. **Update each remaining branch locally:**
+   ```bash
+   update-branch    # alias: gcm && gf -p && gl && gco - && gm main
+   ```
+   This checks out main, fetches + prunes, pulls latest, switches back to the feature branch, and merges main into it.
+3. **If merge conflicts arise** (likely in lockfiles):
+   - Resolve the conflicts
+   - Run `pnpm install` (or the repo's install command) to regenerate the lockfile
+   - Commit the resolution via shell
+4. **Push the updated branch** — `git push`
+5. **Repeat** — merge the next PR on GitHub, update remaining branches, until all are merged
+
+**Key principle:** Always update branches locally before pushing, so local and remote stay in sync. Never use GitHub's "Update branch" button — it creates a merge commit on the remote that your local doesn't have, causing divergence.
