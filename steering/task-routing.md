@@ -10,11 +10,39 @@ This is non-negotiable. The user has curated these workflows deliberately.
 
 ---
 
-When planning work for a ticket, determine the appropriate execution method:
+## The Main Flow
+
+The idea→ship spine. Each skill's output feeds the next:
+
+```
+grill-with-docs → to-spec → to-tickets → implement (per ticket) → code-review → PR
+```
+
+### When to use which entry point
+
+| Situation | Entry point | Flow |
+|-----------|-------------|------|
+| **Large / foggy** — can't spec it yet, decisions to make first | `/wayfinder` | chart map → resolve decisions → `/to-spec` → tickets → implement |
+| **Medium** — clear enough to spec, multiple slices | `/grill-with-docs` | grill → `/to-spec` → `/to-tickets` → implement per ticket |
+| **Small** — single feature, fits one session | `/grill-with-docs` | grill → `/to-spec` → `/implement-from-spec` directly |
+| **Trivial** — typo, one-liner, config tweak | Direct | just do it |
+
+### Phase Boundaries
+
+At the boundary between phases, decide what to do with the context:
+
+1. **Continue** — keep working if context is still useful (only move that keeps conversation as primary source)
+2. **Subagent** — fire off tightly-scoped AFK work (research, a test run)
+3. **`/handoff`** — when work needs to travel (different repo, different person, side task)
+4. **`/compact`** — last resort (you lose nuance from summary flattening)
+
+---
+
+## Execution Methods
 
 | Execution Method | When to Use |
 |-----------------|-------------|
-| **Kiro CLI — full pipeline** | Spec-driven tickets: grill → `/implement-from-spec` → PR. All code changes happen via subagents in the target repo directory. No IDE needed. |
+| **Kiro CLI — full pipeline** | Spec-driven tickets: grill → spec → tickets → implement → PR |
 | **Kiro CLI — direct** | Simple changes (one-file fix, config tweak), local scripting, file manipulation, shell commands |
 | **Kiro CLI — separate agent** | Tasks requiring execution in a different directory that can't be handled by subagents, CMS uploads, image processing, non-code work |
 | **Kiro IDE** | When the user explicitly wants visual feedback, or for exploratory prototyping where inline completions help |
@@ -23,10 +51,13 @@ When planning work for a ticket, determine the appropriate execution method:
 
 For any ticket with acceptance criteria or design decisions to resolve:
 
-1. `/grill-with-docs` — resolve decisions, produce spec at `.kiro/specs/<TICKET>-SPEC.md`
-2. `/implement-from-spec .kiro/specs/<TICKET>-SPEC.md` — orchestrate implementation, testing, review, and PR creation
+1. `/grill-with-docs` — resolve decisions via rounds-based grilling
+2. `/to-spec` — synthesise the grilling into a spec at `.kiro/specs/<TICKET>-SPEC.md`
+3. `/to-tickets` — break into vertical-slice tickets with blocking edges (skip for single-slice work)
+4. `/implement-from-spec` — implement each ticket, test-first, then self-review
+5. PR creation via `/pull-requests`
 
-The CLI orchestrator handles working directory, subagent dispatch, and git operations. No IDE hop needed.
+The CLI orchestrator handles working directory, subagent dispatch, and git operations.
 
 ## When to skip the pipeline
 
@@ -34,6 +65,7 @@ The CLI orchestrator handles working directory, subagent dispatch, and git opera
 - **Exploration / prototyping** — use `/prototype` skill, no spec needed
 - **Research only** — use `/research` skill, no implementation
 - **Non-code work** (Jira updates, Confluence edits, deploy) — direct CLI or handover
+- **Single-slice work** — skip `/to-tickets`, go straight from spec to implement
 
 ## Handover Prompt Rule
 
@@ -69,7 +101,7 @@ The handover prompt must be:
 ## Behaviour
 
 1. Do the research and planning (fetch tickets, read docs, call APIs, explore code).
-2. Determine the execution method early — prefer the full pipeline for anything with acceptance criteria.
+2. Determine the execution method and entry point early — prefer the full pipeline for anything with acceptance criteria.
 3. If the work is too simple for a pipeline, just do it directly.
 4. If producing a handover, tell the user explicitly: "This needs a separate agent. Here's the handover prompt."
 5. Do NOT waste turns attempting execution that will fail due to working directory constraints — use subagents to operate in target directories.

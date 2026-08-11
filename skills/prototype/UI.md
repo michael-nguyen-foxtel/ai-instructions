@@ -23,3 +23,9 @@ Generate several radically different UI variations on a single route, switchable
 - Different interaction models (inline editing vs modal, progressive disclosure vs all-at-once)
 
 Don't just change colours or spacing — those are styling decisions, not design decisions.
+
+## Iteration
+
+After the user reacts to the variants, combine the best aspects into a refined version. Repeat until the user says "this is it." Each iteration is a design decision being locked — note what was chosen and why.
+
+Don't ask "which one?" — ask what they like and dislike about each, then synthesise. The goal is convergence through reaction, not selection from a menu.

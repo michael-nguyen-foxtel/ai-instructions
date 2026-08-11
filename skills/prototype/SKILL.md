@@ -27,4 +27,8 @@ If the question is ambiguous, default to whichever branch better matches the sur
 
 ## When done
 
-The *answer* is the only thing worth keeping. Capture it somewhere durable (commit message, ADR, issue, or NOTES.md next to the prototype) along with the question it was answering. Then delete the prototype.
+The *answer* is the only thing worth keeping. Capture it somewhere durable (commit message, ADR, issue, or NOTES.md next to the prototype) along with the question it was answering.
+
+If the prototype will inform an implementation, push it to a `prototype/<feature>` branch before deleting locally. Link it from the spec as a reference asset — the implementer can pull patterns and code directly from it rather than rebuilding from a description.
+
+If no implementation follows, just delete it.

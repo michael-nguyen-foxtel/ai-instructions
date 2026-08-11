@@ -1,19 +1,35 @@
 ---
 name: grilling
-description: Grill the user relentlessly about a plan or design. Use when the user wants to stress-test a plan before building, or uses any 'grill' trigger phrases.
+description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
 ---
 
-Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the decision tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
-Ask the questions one at a time, waiting for feedback on each question before continuing. Asking multiple questions at once is bewildering.
+Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled — the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
-If a *fact* can be found by exploring the codebase, look it up rather than asking me. The *decisions*, though, are mine — put each one to me and wait for my answer.
+Each question should be formatted like so:
 
-When a branch is resolved, mark it closed in one sentence. Periodically consolidate the shared understanding so I can correct drift.
+```
+❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+
+➡️ <your recommended answer>
+```
+
+Each round the user answers reshapes the tree — settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
+
+Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), dispatch a sub-agent to find it — don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report — ask the rest of the frontier now. The _decisions_ are the user's — put each to them and wait.
+
+## Fidelity Escalation
+
+When a question emerges that cannot be confidently resolved through discussion alone — typically "how should it look?", "how should it behave?", or "does this state model feel right?" — pause the grill and suggest prototyping:
+
+"This feels like it needs higher fidelity. Want me to prototype this so we can react to something concrete?"
+
+If accepted, run `/prototype`, capture the validated decision, then resume the grill where we left off. The prototype answer becomes a locked branch in the design tree.
 
 ## Adversarial QA Pass
 
-When all branches are resolved and before confirming shared understanding, run one final pass:
+When the frontier is empty and before confirming shared understanding, run one final pass:
 
 Think like an adversarial QA engineer. For each acceptance criterion and decision, ask:
 - What input would break this?
@@ -21,8 +37,8 @@ Think like an adversarial QA engineer. For each acceptance criterion and decisio
 - What happens under concurrent access, empty data, network failure, or malformed input?
 - What could a user do that we haven't accounted for?
 
-Present any newly discovered edge cases as additional questions. If they reveal gaps, add them to the acceptance criteria before closing.
+Present any newly discovered edge cases as additional questions. If they reveal gaps, add them as a final round.
 
-Only after this pass is complete, confirm shared understanding.
+## Done
 
-Do not enact the plan until I confirm we have reached a shared understanding.
+The session is done when the frontier is empty and the adversarial pass surfaces nothing new. Do not act on it until the user confirms you have reached a shared understanding.

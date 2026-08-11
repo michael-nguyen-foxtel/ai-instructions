@@ -96,7 +96,7 @@ If the reviewer returns NEEDS_CHANGES:
 Once review passes:
 
 1. Stage changes: `git add -A` — then verify `.kiro/` is NOT staged (`git status` should not show any `.kiro/` files). If it is, the `.gitignore` prerequisite was missed.
-2. Commit with a conventional commit message (read /commit-messages skill conventions)
+2. Commit via **shell** (read `/commit-messages` skill for format and tooling rules — MCP git tools are prohibited for commits)
 3. Push the branch: `git push -u origin <branch>`
 4. Create a PR using GitHub MCP (title from spec summary, body from acceptance criteria)
 5. Report: PR URL, summary of what was built, any caveats
