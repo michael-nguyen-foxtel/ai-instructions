@@ -22,3 +22,10 @@ done
 
 echo "✓ Copilot instructions installed to: $COPILOT_TARGET/"
 ls "$COPILOT_TARGET"
+echo ""
+echo "Files installed:"
+echo "  • commit-messages.instructions.md  — commit format (always-on)"
+echo "  • pull-requests.instructions.md    — PR conventions (always-on)"
+echo "  • branch-naming.instructions.md    — branch format (always-on)"
+echo "  • code-review.instructions.md      — code conventions (always-on)"
+echo "  • testing.instructions.md          — test conventions (*.spec.* files only)"
