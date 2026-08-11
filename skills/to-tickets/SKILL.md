@@ -102,6 +102,19 @@ Naming: `<repo>-<TICKET>-<short-slug>` (e.g., `quicksilver-WEB-4601-ts-foundatio
    - Relevant implementation decisions from the parent spec
    - Testing decisions scoped to this slice
 
+4. **Output a launch prompt** for each worktree. This is a self-contained prompt the user pastes into a new Kiro CLI session:
+
+```
+## Implement: <TICKET> — <Title>
+
+Working directory: /path/to/<repo>-<TICKET>-<slug>
+
+Implement the spec at `.kiro/specs/<TICKET>-SPEC.md`. The branch is already created
+and dependencies are installed.
+
+Run `/implement-from-spec .kiro/specs/<TICKET>-SPEC.md`
+```
+
 Each worktree is self-contained: its own branch, its own `node_modules`, its own spec. A Kiro CLI session in that directory has everything it needs to implement without reading from another worktree.
 
 **Cleanup:** After a ticket's PR is merged, remove its worktree: `git worktree remove ../<worktree-dir>`
