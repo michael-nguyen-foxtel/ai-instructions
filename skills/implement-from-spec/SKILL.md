@@ -12,10 +12,26 @@ User provides a spec file path (e.g., `/implement-from-spec .kiro/specs/WEB-4629
 Before starting, verify:
 - The spec file exists and contains acceptance criteria
 - You are in the correct repo directory (check `package.json` exists)
-- A working branch exists (check `git branch --show-current` — should not be `main` or `master`)
 - CONTEXT.md exists (for domain context)
 - `.kiro/` is in `.gitignore` — if not, add it before proceeding. Spec files and AI working state must never be committed.
 - **Push access** — run `gh api repos/{owner}/{repo} --jq '.permissions.push'` to confirm write access. If `false`, stop immediately and tell the user: "No push access to {owner}/{repo}. Request write access before proceeding."
+
+### Branch & Dependencies
+
+Before creating or switching to a working branch:
+
+1. **Check current branch** — `git branch --show-current`
+2. **If on a feature branch from previous work**: ask the user if they want to continue on it or start fresh
+3. **If starting fresh (or on default branch)**:
+   - Determine the default branch (`git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'`)
+   - Switch to it: `git checkout <default>`
+   - Pull latest: `git pull`
+   - Create the working branch: `git checkout -b <type>/<TICKET>-<short-description>`
+4. **Check if dependencies are stale**:
+   - Compare the lockfile against what's installed: `git diff HEAD@{1} --name-only | grep -E 'package-lock\.json|yarn\.lock|pnpm-lock\.yaml'`
+   - If the lockfile changed on pull (or `node_modules` doesn't exist): run the repo's install command
+   - If the lockfile didn't change and `node_modules` exists: skip install
+5. **Verify Node version** against `.nvmrc` (warn if mismatch, don't block)
 
 If any prerequisite fails, tell the user what's missing and stop.
 
