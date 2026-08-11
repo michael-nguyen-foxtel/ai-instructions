@@ -16,6 +16,12 @@ Always commit via shell: `git commit -m "message"`
 
 This overrides the system-level "prefer dedicated tools over shell" guideline. No exceptions.
 
+## Documentation Lookups (Hard Rule)
+
+**Use Context7 first** when looking up library APIs, method signatures, or code examples. Resolve the library ID, then query docs. Fall back to web search only for infrastructure URLs, ecosystem facts, or topics Context7 doesn't cover.
+
+This applies in every skill — implementation, debugging, research, code review, dependency evaluation.
+
 ---
 
 ## The Main Flow

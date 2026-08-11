@@ -56,7 +56,7 @@ See the commit-messages skill for full rules on type, scope, ticket, and descrip
 When creating a PR title and description:
 
 0. **Pre-check push access** — run `gh api repos/{owner}/{repo} --jq '.permissions.push'`. If `false`, stop and tell the user they need write access. Do not attempt to push.
-0. **Review the diff before creating the PR** — run the code-review skill against all changes on the branch (diff vs base). Fix any 🔴 must-fix issues before proceeding. Report 🟡 should-fix items to the user but don't block on them. This applies to ALL PR creation paths (full pipeline, ad-hoc, manual request).
+0. **Run Fallow audit before creating the PR** — dispatch the pr-reviewer subagent (which runs `audit` + `security_candidates`). Fix any 🔴 must-fix issues before proceeding. Report 🟡 should-fix items to the user but don't block on them. This applies to ALL PR creation paths (full pipeline, ad-hoc, manual request). Never skip this step.
 1. **Draft the PR title** using the commit message convention and pause for confirmation.
 2. **Suggest a scope** based on the files changed and ask if it's appropriate.
 3. **Ask for related PRs** before finalising the description.
