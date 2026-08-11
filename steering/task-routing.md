@@ -40,9 +40,10 @@ grill-with-docs → to-spec → to-tickets → implement (per ticket) → code-r
 At the boundary between phases, decide what to do with the context:
 
 1. **Continue** — keep working if context is still useful (only move that keeps conversation as primary source)
-2. **Subagent** — fire off tightly-scoped AFK work (research, a test run)
-3. **`/handoff`** — when work needs to travel (different repo, different person, side task)
-4. **`/compact`** — last resort (you lose nuance from summary flattening)
+2. **`/tangent`** — quick side-investigation without polluting main thread (API lookup, debug a side error, compare alternatives). Come back with `/tangent root`
+3. **Subagent** — fire off tightly-scoped AFK work (research, a test run)
+4. **`/handoff`** — when work needs to travel (different repo, different person, side task)
+5. **`/compact`** — last resort (you lose nuance from summary flattening)
 
 ---
 
