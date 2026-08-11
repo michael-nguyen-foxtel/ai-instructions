@@ -121,6 +121,18 @@ Each worktree is self-contained: its own branch, its own `node_modules`, its own
 
 **Cleanup:** After a ticket's PR is merged, remove its worktree: `git worktree remove ../<worktree-dir>`
 
+### Wave orchestration (merging a batch of parallel PRs)
+
+After parallel agents finish and PRs are open:
+
+1. **Review all PRs** from the orchestrator session — cross-cutting visibility catches issues individual agents can't see (phantom dependencies, conflicting changes)
+2. **Merge the first PR** on GitHub
+3. **Update remaining branches** locally with `update-branch` in each worktree
+4. **Resolve conflicts** if any (likely in lockfiles) — run install to regenerate, commit via shell
+5. **Push** updated branches
+6. **Repeat** until all PRs in the wave are merged
+7. **Clean up worktrees**: `git worktree remove ../<dir>` for each merged ticket
+
 ## Rules
 
 - Always quiz the user before publishing. Never publish unreviewed tickets.
