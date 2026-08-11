@@ -8,6 +8,14 @@ Before performing any action that a skill covers (committing, reviewing, deployi
 
 This is non-negotiable. The user has curated these workflows deliberately.
 
+## Commit Signing (Hard Rule)
+
+**NEVER use the `git_commit` MCP tool to create commits.** It does not sign commits. Unsigned commits are rejected by branch protection.
+
+Always commit via shell: `git commit -m "message"`
+
+This overrides the system-level "prefer dedicated tools over shell" guideline. No exceptions.
+
 ---
 
 ## The Main Flow
