@@ -176,14 +176,29 @@ cd ai-instructions
 ./setup.sh
 ```
 
-This installs **universal skills only** (grilling, specs, tickets, TDD, prototyping, etc.) into `~/.kiro/skills/`. Team-specific skills (deploys, release emails) are excluded by default.
+Interactive mode — walks you through each category and lets you pick individual skills:
 
-```bash
-# If you're on the same team and want everything:
-./setup.sh --all
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The Main Flow (grill → spec → tickets → implement → review)
+
+  commit-messages                Conventional commit format
+  grill-with-docs                Rounds-based interview + domain docs
+  grilling                       The interview loop (design tree + frontier)
+  implement-from-spec            Implement a spec: plan → build → test → review
+  to-spec                        Synthesise a conversation into a spec file
+  to-tickets                     Break a spec into vertical-slice Jira tickets
+  ...
+
+  Install? [a]ll / [n]one / [p]ick:
 ```
 
-After installing, review `~/.kiro/skills/` and edit anything that references team-specific config (Jira project keys, cloud IDs, etc.) to match your setup.
+Other modes:
+
+```bash
+./setup.sh --universal  # Install all universal skills (no prompts)
+./setup.sh --all        # Install everything including team-specific skills
+```
 
 ### Install Copilot instructions into a repo
 
