@@ -84,7 +84,9 @@ After publishing, check if any tickets share no blocking edges (i.e., they can s
 
 > "Tickets X and Y have no blocking edges — want me to set up worktrees so they can be implemented in parallel?"
 
-If accepted, create worktrees:
+If accepted:
+
+1. **Create worktrees:**
 
 ```bash
 # From the repo root (main worktree stays on default branch)
@@ -93,9 +95,14 @@ git worktree add ../<repo>-<TICKET>-<slug> -b <type>/<TICKET>-<slug>
 
 Naming: `<repo>-<TICKET>-<short-slug>` (e.g., `quicksilver-WEB-4601-ts-foundation`).
 
-After creating each worktree, run the repo's install command inside it so it's ready to implement immediately.
+2. **Install dependencies** in each worktree so it's ready to implement immediately.
 
-Each parallel ticket gets its own Kiro CLI session operating in its own worktree directory — no branch switching, no stale `node_modules`.
+3. **Create a scoped spec** in each worktree at `.kiro/specs/<TICKET>-SPEC.md`. This spec contains only the scope for that ticket — not the full parent spec. Pull content from:
+   - The Jira ticket's "What to build" and acceptance criteria
+   - Relevant implementation decisions from the parent spec
+   - Testing decisions scoped to this slice
+
+Each worktree is self-contained: its own branch, its own `node_modules`, its own spec. A Kiro CLI session in that directory has everything it needs to implement without reading from another worktree.
 
 **Cleanup:** After a ticket's PR is merged, remove its worktree: `git worktree remove ../<worktree-dir>`
 
