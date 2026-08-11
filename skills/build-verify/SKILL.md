@@ -62,6 +62,72 @@ Hypothesis: [why it's still failing]
 Suggestion: [what the user should check]
 ```
 
+## CI Simulation (pre-push)
+
+When the user says "check if CI will pass", "simulate CI", or before creating a PR, run the full local CI sequence. This mirrors what the shared GitHub Actions workflow does, minus Docker and deploy:
+
+```
+Install (frozen) → Lint → Typecheck → Test → Build
+```
+
+### Steps
+
+1. **Install with frozen lockfile** — same as CI:
+   - pnpm: `pnpm install --frozen-lockfile`
+   - npm: `npm ci`
+   - yarn: `yarn install --immutable`
+
+2. **Lint** — `pnpm run lint` (or repo equivalent). If the repo has separate JS + Style lint, run both.
+
+3. **Typecheck** (if TypeScript) — `pnpm run typecheck` or `npx tsc --noEmit`
+
+4. **Test** — `pnpm run test` (the full suite, not scoped). This is what CI runs.
+
+5. **Build** — `pnpm run build`. Confirms the production bundle compiles.
+
+### How to detect what CI runs
+
+Read `.github/workflows/pull-request.yml` (or `ci.yml`) and check which steps the shared workflow calls. The shared `ci-cd.yml` in `streamotion-web-github-workflows` auto-detects:
+- Lint: checks for `lint` script in package.json
+- Test: checks for `test`, `test:jest`, `test:mocha` scripts
+- Build: checks for `build` script
+- Storybook: checks for `.storybook/` directory
+
+Run whatever the workflow would detect for this repo.
+
+### What to skip
+
+- Docker steps (Vizard visual regression) — note as "skipped, needs Docker"
+- Deploy/package steps — those are post-merge only
+- E2E tests — if they require a running server or browser
+
+### Output
+
+```
+CI Simulation:
+✓ Install (frozen lockfile)
+✓ Lint
+✓ Typecheck
+✓ Tests (27 suites, 203 passed)
+✓ Build
+
+Prediction: CI will pass ✅
+Skipped: Vizard (needs Docker)
+```
+
+Or on failure:
+```
+CI Simulation:
+✓ Install
+✓ Lint
+✗ Tests — 2 failures in src/components/Button.spec.tsx
+
+[failure details]
+
+Prediction: CI will FAIL ❌
+Fix the test failures before pushing.
+```
+
 ## Repo-Specific Commands
 
 Detect from package.json. Common patterns in this org:
