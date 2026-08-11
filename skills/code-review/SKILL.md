@@ -6,6 +6,19 @@ Use when reviewing code changes, PR diffs, or when asked to check code quality.
 
 User asks to "review", "check", "audit code", or provides a diff/file for feedback.
 
+## Process
+
+Dispatch a **pr-reviewer subagent** to perform the review. The subagent has Fallow tools (dead code, complexity, duplication, security) and git tools configured — it handles the full review including automated analysis.
+
+The subagent will:
+1. Run fallow `audit` against the diff (dead code, complexity, duplication)
+2. Run `security_candidates` on changed source files
+3. Review against team conventions and the originating spec (if one exists)
+4. Report findings by severity (🔴 blocker / 🟡 warning / 🔵 nit)
+5. Produce a handover prompt if blockers are found
+
+If the subagent is not available (e.g., running in a minimal environment), fall back to the manual review checklist below.
+
 ## Conventions (from @fsa-streamotion/streamotion-web-eslint-config)
 
 ### Naming
