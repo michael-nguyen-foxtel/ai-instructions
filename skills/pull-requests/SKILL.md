@@ -49,7 +49,7 @@ See the commit-messages skill for full rules on type, scope, ticket, and descrip
 ### Otherwise:
 
 - **Do not force-push or rebase.** Add a new commit with a descriptive message (e.g., "Adjusted x for y").
-- If you need the latest `main` in your branch, **merge** it into your branch — do not rebase.
+- If you need the latest `main` in your branch, run `update-branch` (merges main into the current branch locally) — do not rebase.
 
 ## Agent Behaviour
 
@@ -70,7 +70,7 @@ When performing git operations during an open PR:
 - **Do not force-push or rebase** — add new commits instead.
 - **Do not merge** — leave merging to the author via the GitHub web app.
 - When addressing review feedback, use descriptive commit messages (e.g., `fix: WEB-1234 | address PR feedback - extract helper function`).
-- If the user needs latest `main`, merge it into the branch — never rebase.
+- If the user needs latest `main`, run `update-branch` — never rebase.
 
 ## Merging Multiple PRs in Sequence
 
