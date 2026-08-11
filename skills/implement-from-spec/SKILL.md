@@ -16,6 +16,7 @@ Before starting, verify:
 - You are in the correct repo directory (check `package.json` exists)
 - CONTEXT.md exists (for domain context)
 - `.kiro/` is in `.gitignore` — if not, add it before proceeding. Spec files and AI working state must never be committed.
+- `.kiroignore` exists — if not, create it with: `node_modules/`, `dist/`, `build/`, `.next/`, `out/`, `coverage/`, `.nyc_output/`, `tmp/`, `.cache/` (one per line). This prevents the agent from indexing build output.
 - **Push access** — run `gh api repos/{owner}/{repo} --jq '.permissions.push'` to confirm write access. If `false`, stop immediately and tell the user: "No push access to {owner}/{repo}. Request write access before proceeding."
 
 ### Branch & Dependencies
