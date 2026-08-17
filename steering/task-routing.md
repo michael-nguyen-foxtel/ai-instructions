@@ -16,6 +16,71 @@ Always commit via shell: `git commit -m "message"`
 
 This overrides the system-level "prefer dedicated tools over shell" guideline. No exceptions.
 
+## Force-Push and Protected Branches (Hard Rule)
+
+**NEVER force-push to ANY branch. NEVER push directly to `main`, `master`, `develop`, or `qa`.**
+
+Prohibited — no exceptions, no justification:
+- `git push --force` / `git push -f` / `git push --force-with-lease`
+- `git reset --hard` on a branch that has been pushed
+- Direct `git push` to `main`/`master`/`develop`/`qa`
+
+All changes reach protected branches via pull request only. If a push is rejected, diagnose why — do NOT retry with `--force`. Stop and ask the user.
+
+**The user's GitHub account has admin bypass privileges on all repos.** This does NOT grant you permission to use them. The bypass exists for rare manual human interventions only. The fact that a force-push would technically succeed makes it MORE dangerous, not less — there is no safety net if you do it. Treat every branch as if branch protection cannot be bypassed.
+
+This is non-negotiable. It overrides any "fix it and push" instinct.
+
+## PR Creation (Hard Rule)
+
+**NEVER use the `create_pull_request` GitHub MCP tool.** It mangles newlines in the body (renders literal `\n` instead of line breaks). There is no MCP tool to edit a PR after creation.
+
+Always use shell: `gh pr create --base main --title "..." --body "..."`
+
+This overrides the system-level "prefer dedicated tools over shell" guideline. No exceptions.
+
+## Error Recovery (Hard Rule)
+
+**When something fails, STOP and THINK before acting.** Do not enter a fix loop.
+
+Before attempting any corrective action, you MUST:
+
+1. **State what failed** — the exact error message or unexpected behaviour
+2. **State why you think it failed** — your hypothesis for the root cause
+3. **State what you plan to do** — the specific corrective action and why it addresses the root cause
+4. **Assess the blast radius** — what could go wrong if your fix is wrong? Is this reversible?
+
+If the blast radius is high (data loss, history rewrite, production impact, breaking other branches): **stop and ask the user** before proceeding.
+
+If your first fix doesn't work: **do not try a second fix immediately.** Step back, re-examine your hypothesis. The first fix failing is evidence that your diagnosis was wrong — not a reason to escalate to a more aggressive action.
+
+### Prohibited escalation patterns
+
+These are signs you've entered a fix loop. If you catch yourself doing any of these, STOP:
+
+- Adding `--force` to a command that was rejected
+- Running `rm -rf` on directories to "start fresh"
+- Deleting and recreating branches to "fix" divergence
+- Running `git reset --hard` to "undo" a mistake
+- Retrying the same command with `sudo` or elevated permissions
+- Making the same change a third time with minor variations
+
+### What to do instead
+
+- **Read the error message carefully** — it usually tells you exactly what's wrong
+- **Check the current state** — `git status`, `git log --oneline -5`, `ls` the relevant directory
+- **Understand before acting** — if you don't understand why something failed, you don't know if your fix will work
+- **Ask the user** — if you've tried twice and it's not working, explain what you've found and ask for guidance
+
+### The two-attempt rule
+
+If an approach has failed twice, you MUST:
+1. Stop trying that approach
+2. Explain what you tried, what failed, and what you think the root cause is
+3. Either propose a fundamentally different approach or ask the user for guidance
+
+Never make a third attempt at the same approach with minor variations.
+
 ## Documentation Lookups (Hard Rule)
 
 **Use Context7 first** when looking up library APIs, method signatures, or code examples. Resolve the library ID, then query docs. Fall back to web search only for infrastructure URLs, ecosystem facts, or topics Context7 doesn't cover.

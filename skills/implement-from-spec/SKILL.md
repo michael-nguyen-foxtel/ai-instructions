@@ -9,7 +9,7 @@ User provides a spec file path (e.g., `/implement-from-spec .kiro/specs/WEB-4629
 
 ## Prerequisites
 
-**Hard rule: NEVER use the `git_commit` MCP tool.** It does not sign commits. All commits must be created via shell `git commit` command. This is non-negotiable — unsigned commits are rejected by branch protection.
+Commits must be created via shell `git commit` (signed automatically).
 
 Before starting, verify:
 - The spec file exists and contains acceptance criteria

@@ -7,7 +7,80 @@ disable-model-invocation: true
 
 Bump a project's version and create a PR.
 
-## Workflow
+## Detecting the flow
+
+Check which versioning strategy the repo uses:
+
+1. If `.changeset/config.json` exists → use **Changesets flow**
+2. Otherwise → use **Manual flow**
+
+## Detecting the package manager
+
+| Lockfile | Package manager | Run command |
+|----------|----------------|-------------|
+| `pnpm-lock.yaml` | pnpm | `pnpm` |
+| `yarn.lock` | yarn | `yarn` |
+| `package-lock.json` | npm | `npm` |
+| None | npm | `npx` |
+
+---
+
+## Changesets Flow
+
+When the repo has `.changeset/config.json`:
+
+### Adding a changeset (during development)
+
+Run `npx changeset` (interactive, works regardless of package manager) or create a file manually:
+
+`.changeset/<descriptive-name>.md`:
+```markdown
+---
+"@fsa-streamotion/package-name": patch
+---
+
+Brief description of the change
+```
+
+### Bump levels
+
+- `patch` — internal refactor, no API change (TS migration, dep update, bug fix)
+- `minor` — new exported types, components, or features
+- `major` — breaking change to existing exports
+
+### When to add a changeset
+
+- Every PR that changes runtime code (src/, lib/, components/)
+- Every PR that changes the package's public API (new exports, changed types)
+- Bug fixes that affect consumers
+
+### When NOT to add a changeset
+
+- CI/CD-only changes (workflow files, Docker config)
+- Documentation-only changes
+- Test-only changes
+- Storybook-only changes
+- Changes to dev tooling (eslint config, prettier, etc.)
+
+### Release flow
+
+1. PRs land on main with changeset files included in the commit
+2. GitHub Action creates a "Version Packages" PR (bumps package.json version + writes CHANGELOG.md)
+3. Merge the "Version Packages" PR when ready to release
+4. Create a GitHub Release to trigger the publish workflow
+
+### Agent behaviour (changesets)
+
+1. When creating a PR, check if `.changeset/config.json` exists
+2. If it does, check if the PR includes source code changes (not just CI/docs/tests)
+3. If source changes exist and no `.changeset/*.md` file is staged, remind the user: "This PR changes source code but has no changeset. Run `npx changeset` to add one."
+4. When a "Version Packages" PR is merged, follow the post-merge steps (Jira release, WRT ticket, etc.) from the Manual flow section below — the publish trigger is the same
+
+---
+
+## Manual Flow
+
+When the repo does NOT have `.changeset/config.json`:
 
 ### 1. Determine bump type
 
@@ -19,15 +92,9 @@ Ask which bump type:
 
 If context suggests a type (e.g., only dependency updates → patch), suggest it but confirm.
 
-### 2. Detect package manager and working directory
+### 2. Detect working directory
 
-| Lockfile | Package manager |
-|----------|----------------|
-| `package-lock.json` | npm |
-| `pnpm-lock.yaml` | pnpm |
-
-Working directory:
-- If `node-app/` exists at repo root → run npm commands from there
+- If `node-app/` exists at repo root → run commands from there
 - Otherwise → repo root
 
 ### 3. Bump the version
@@ -54,11 +121,13 @@ git checkout -b <type>/v<NEW_VERSION>
 npm install --package-lock-only
 # pnpm repos:
 pnpm install --lockfile-only
+# yarn repos:
+yarn install
 
 # 6. If npm version generated a package-lock.json in a pnpm repo, delete it
 
 # 7. Stage and commit
-git add package.json package-lock.json  # (or pnpm-lock.yaml)
+git add package.json package-lock.json  # (or pnpm-lock.yaml / yarn.lock)
 git commit -m "v<NEW_VERSION>"
 ```
 
@@ -139,14 +208,16 @@ The WEB release URL requires the Jira version ID. Ask the user for it (they'll h
 
 ## Agent Behaviour
 
-1. Ask for bump type before running anything
-2. Detect package manager by checking lockfiles
-3. Determine working directory (`node-app/` vs root)
-4. Run the steps inline (never call `base_version_bump` or `version_bump`)
-5. Use `git checkout -b` to create AND switch to the branch in one step
-6. Update lockfile, stage everything, commit as `v<NEW_VERSION>`
-7. Push the branch
-8. Create PR via `gh pr create` (not the GitHub MCP tool)
-9. After merge: provide Jira release title, ticket list, and description summary
-10. Create WRT tracking ticket with release URL
-11. Remind the user of remaining manual steps (create version, QA, comms, deploy)
+1. Check for `.changeset/config.json` to determine the flow
+2. If changesets: remind about changeset files during PRs, handle "Version Packages" PR merge
+3. If manual: ask for bump type before running anything
+4. Detect package manager by checking lockfiles
+5. Determine working directory (`node-app/` vs root)
+6. Run the steps inline (never call `base_version_bump` or `version_bump`)
+7. Use `git checkout -b` to create AND switch to the branch in one step
+8. Update lockfile, stage everything, commit as `v<NEW_VERSION>`
+9. Push the branch
+10. Create PR via `gh pr create` (not the GitHub MCP tool)
+11. After merge: provide Jira release title, ticket list, and description summary
+12. Create WRT tracking ticket with release URL
+13. Remind the user of remaining manual steps (create version, QA, comms, deploy)

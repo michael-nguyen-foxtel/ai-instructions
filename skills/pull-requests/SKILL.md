@@ -4,6 +4,20 @@ description: Use when creating pull requests, writing PR titles/descriptions, or
 ---
 # Pull Request Convention
 
+## Creating PRs
+
+Always create PRs via shell using `gh`:
+
+```bash
+gh pr create \
+  --base main \
+  --title "type(scope): TICKET | description" \
+  --body "## Summary
+..."
+```
+
+For stacked PRs managed by Graphite: `gt stack submit`
+
 ## PR Title Format
 
 Same as commit message format:
@@ -18,7 +32,7 @@ See the commit-messages skill for full rules on type, scope, ticket, and descrip
 
 ```markdown
 ## Summary
-<!-- What does this PR do and why? Include any extra context for the reviewer. -->
+<!-- What does this PR do and why? -->
 
 ## Jira reference(s)
 <!--
@@ -32,61 +46,77 @@ See the commit-messages skill for full rules on type, scope, ticket, and descrip
 -->
 
 ## Testing
-<!-- How was this tested? Unit tests, manual steps, etc. -->
+<!-- How was this tested? -->
 
 ## Screenshots
 <!-- Optional: include for UI changes -->
 ```
 
-## Rebasing / Force-Pushing
+## Pushing Changes
 
-**General rule: do NOT rebase or force-push during an open pull request.** It makes it harder to track changes for people who have already reviewed code.
+Always push to a feature branch:
 
-### You can only force-push or rebase if:
+```bash
+git push -u origin <branch-name>
+```
 
-- You have no review comments so far AND the PR has been open for less than 5 minutes (or there's no chance anybody is currently reading it).
+If a push is rejected, check why (`git status`, `git log`). Do NOT add `--force`. Ask the user if unsure.
 
-### Otherwise:
+## Updating a Branch with Latest Main
 
-- **Do not force-push or rebase.** Add a new commit with a descriptive message (e.g., "Adjusted x for y").
-- If you need the latest `main` in your branch, run `update-branch` (merges main into the current branch locally) — do not rebase.
+Use `update-branch` (merges main in locally):
+
+```bash
+update-branch    # alias: gcm && gf -p && gl && gco - && gm main
+```
+
+## Responding to Review Feedback
+
+Add new commits with descriptive messages:
+
+```bash
+git commit -m "fix: WEB-1234 | address PR feedback - extract helper function"
+git push
+```
+
+## Stacked PRs (Graphite)
+
+When in a Graphite stack (check with `gt stack`):
+
+| Task | Command |
+|------|---------|
+| Push all + create/update PRs | `gt stack submit` |
+| Fix a mid-stack PR | `gt checkout <branch>`, fix, `gt stack restack`, `gt stack submit` |
+| After bottom PR merges | `gt sync` |
+
+## Changesets Check
+
+If `.changeset/config.json` exists in the repo and the PR changes source code (not just CI/docs/tests):
+- Verify a `.changeset/*.md` file is included
+- If missing: `npx changeset`
 
 ## Agent Behaviour
 
-When creating a PR title and description:
-
-0. **Pre-check push access** — run `gh api repos/{owner}/{repo} --jq '.permissions.push'`. If `false`, stop and tell the user they need write access. Do not attempt to push.
-0. **Run Fallow audit before creating the PR** — dispatch the pr-reviewer subagent (which runs `audit` + `security_candidates`). Fix any 🔴 must-fix issues before proceeding. Report 🟡 should-fix items to the user but don't block on them. This applies to ALL PR creation paths (full pipeline, ad-hoc, manual request). Never skip this step.
-1. **Draft the PR title** using the commit message convention and pause for confirmation.
-2. **Suggest a scope** based on the files changed and ask if it's appropriate.
-3. **Ask for related PRs** before finalising the description.
-4. **Fill in the description template** with context from the branch's commits and changes.
-5. **Assign the PR** to the current user.
-6. **Add relevant labels** if they exist in the repo.
-7. **Pause for final confirmation** before submitting the PR.
-
-When performing git operations during an open PR:
-
-- **Do not force-push or rebase** — add new commits instead.
-- **Do not merge** — leave merging to the author via the GitHub web app.
-- When addressing review feedback, use descriptive commit messages (e.g., `fix: WEB-1234 | address PR feedback - extract helper function`).
-- If the user needs latest `main`, run `update-branch` — never rebase.
+1. **Pre-check push access** — `gh api repos/{owner}/{repo} --jq '.permissions.push'`
+2. **Run Fallow audit** — dispatch pr-reviewer subagent. Fix 🔴 issues before proceeding.
+3. **Check for Graphite stack** — `gt stack` to detect. If yes, use `gt stack submit`.
+4. **Check for changesets** — if config exists and source code changed, verify changeset included.
+5. **Create PR via `gh pr create`** — draft title, confirm with user, submit.
+6. **Assign** to current user.
+7. **Pause for final confirmation** before submitting.
 
 ## Merging Multiple PRs in Sequence
 
-When merging a series of PRs that touch overlapping files (e.g., `package.json`, lockfiles, shared config):
+### Standalone PRs
 
-1. **Merge the first PR** on GitHub (via the web UI or `gh pr merge`)
-2. **Update each remaining branch locally:**
-   ```bash
-   update-branch    # alias: gcm && gf -p && gl && gco - && gm main
-   ```
-   This checks out main, fetches + prunes, pulls latest, switches back to the feature branch, and merges main into it.
-3. **If merge conflicts arise** (likely in lockfiles):
-   - Resolve the conflicts
-   - Run `pnpm install` (or the repo's install command) to regenerate the lockfile
-   - Commit the resolution via shell
-4. **Push the updated branch** — `git push`
-5. **Repeat** — merge the next PR on GitHub, update remaining branches, until all are merged
+1. Merge bottom PR on GitHub
+2. Update remaining branches: `update-branch`
+3. Resolve conflicts if any (run install command, commit)
+4. Push, repeat
 
-**Key principle:** Always update branches locally before pushing, so local and remote stay in sync. Never use GitHub's "Update branch" button — it creates a merge commit on the remote that your local doesn't have, causing divergence.
+### Stacked PRs (Graphite)
+
+1. Merge bottom PR on GitHub
+2. `gt sync` — pulls main, cleans merged branches, restacks
+3. `gt stack submit` — push updated stack
+4. Repeat from new bottom

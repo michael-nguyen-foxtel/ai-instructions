@@ -12,4 +12,4 @@ Use when you need to resolve an in-progress git merge or rebase conflict.
 
 4. **Run automated checks.** Discover the project's checks and run them — typically typecheck, then tests, then format. Fix anything the merge broke.
 
-5. **Finish the merge/rebase.** Stage everything and commit via shell (`git commit` — never the `git_commit` MCP tool, it doesn't sign). If rebasing, `git rebase --continue` until all commits are replayed.
+5. **Finish the merge/rebase.** Stage everything and commit via shell (`git commit`). If rebasing, `git rebase --continue` until all commits are replayed.

@@ -75,6 +75,29 @@ Once the root cause is confirmed:
 - **Fix the symptom**: adding a null check instead of understanding why it's null
 - **Blame the framework**: assuming a library bug before checking your own code
 - **Skip reproduction**: jumping to a fix based on the bug report alone
+- **Escalation as fix**: reaching for more aggressive tools (--force, rm -rf, reset --hard) when a gentler approach fails
+- **Third attempt at same approach**: if it didn't work twice, it won't work a third time with minor variations
+
+## The Two-Attempt Rule
+
+If your fix attempt fails twice:
+
+1. **Stop** — do not try a third variation
+2. **State what you tried** and what happened each time
+3. **Re-examine your hypothesis** — two failures likely means the root cause is different from what you think
+4. **Either** propose a fundamentally different approach **or** ask the user for guidance
+
+The pull to "just try one more thing" is the signal that you've entered a fix loop. Resist it.
+
+## Blast Radius Check
+
+Before applying any fix, assess:
+
+- **Reversibility** — can this be undone easily? (file edit = yes, force-push = no, data deletion = no)
+- **Scope** — does this touch shared state? (single file = low, git history = high, production config = high)
+- **Confidence** — how sure are you this fixes the root cause? (confirmed via instrumentation = high, untested hypothesis = low)
+
+If reversibility is low AND confidence is low: **stop and ask the user.**
 
 ## Output Format
 

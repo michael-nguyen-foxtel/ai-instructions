@@ -44,43 +44,30 @@ docs: WEB-DOCS | add API endpoint documentation
 test(player): WEB-TEST | add unit tests for stats table
 ```
 
-## Commit Signing
+## How to Commit
 
-- **Every commit must be signed.** Unsigned commits will be rejected by branch protection rules.
-- SSH signing is configured globally — shell `git commit` commands will be signed automatically.
+All commits are created via shell (signed automatically via ssh-agent):
 
-### Safe ways to create commits
+```bash
+git add <specific-files>
+git commit -m "type(scope): TICKET | description"
+```
 
-- **Shell `git commit`** — ✅ signed automatically via ssh-agent
-- **`base_version_bump` script** — ✅ uses shell git, signed automatically
-- **Kiro/agent terminal** — ✅ inherits the user's git config
+## How to Push
 
-### Prohibited tools (bypass signing)
+Always push to a feature branch:
 
-**Never use these tools to create commits:**
-- `git_commit` (git MCP tool) — does not pass `-S` flag, produces unsigned commits
-- `create_or_update_file` (GitHub MCP tool) — commits via the GitHub API without a signature
-- `push_files` (GitHub MCP tool) — commits via the GitHub API without a signature
+```bash
+git push -u origin <branch-name>
+```
 
-These produce unsigned commits that will be blocked by branch protection.
-
-**This rule overrides the general "prefer dedicated tools over shell" guideline.** Signing requires shell execution — no MCP commit tool supports it.
-
-### GitHub MCP tools that are safe to use
-
-- `get_file_contents`, `list_commits`, `list_pull_requests`, `get_pull_request`, etc. (read-only)
-- `create_branch` (does not create a commit)
-- `create_pull_request` (does not create a commit)
+If a push is rejected: check `git status` and `git log --oneline -5`. Diagnose the cause. Ask the user for guidance if unsure.
 
 ## Agent Behaviour
 
-When generating commit messages:
-
-1. **Check if on a feature branch** — if still on `main`, create the branch first using the `branch-naming` convention (e.g., `feat/WEB-4629-carding-name-filter`)
-2. **Suggest a scope** based on the files changed and ask if it's appropriate
-3. **Ask for the Jira ticket** if not already known from context
-4. **Draft the commit message** and pause for confirmation before committing
-5. **Stage specific files** — prefer `git add <files>` over `git add .`
-6. **Clean up working documents** — delete any `*-SPEC.md` files before the final commit. These are working documents from the planning phase, not durable artifacts. `CONTEXT.md` and `docs/adr/` stay.
-7. **Commit via shell** — `git commit -m "message"` (signed automatically)
-8. **Do not force-push or rebase** during open pull requests — add new commits instead
+1. **Verify you're on a feature branch** — if on `main`, create a branch first (e.g., `feat/WEB-4629-carding-name-filter`)
+2. **Stage specific files** — `git add <files>`, not `git add .`
+3. **Draft the commit message** and confirm with the user before committing
+4. **Commit via shell** — `git commit -m "message"`
+5. **Push to the feature branch** — `git push -u origin <branch>`
+6. **If something goes wrong** — diagnose, explain to the user, and ask for guidance. Do not escalate (see Error Recovery in task-routing steering).
