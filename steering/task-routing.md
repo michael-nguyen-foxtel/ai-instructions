@@ -31,6 +31,8 @@ All changes reach protected branches via pull request only. If a push is rejecte
 
 Tags are immutable once pushed. To fix a tagged release, create a NEW version (e.g., `v2.0.1`), don't rewrite the old tag.
 
+Tags are created AFTER merge, via GitHub Release UI — never by an agent on a feature branch. The flow is: merge PR → create GitHub Release (which creates the tag) → publish workflow triggers. Do not run `git tag` locally unless the user explicitly asks.
+
 **The user's GitHub account has admin bypass privileges on all repos.** This does NOT grant you permission to use them. The bypass exists for rare manual human interventions only. The fact that a force-push would technically succeed makes it MORE dangerous, not less — there is no safety net if you do it. Treat every branch as if branch protection cannot be bypassed.
 
 This is non-negotiable. It overrides any "fix it and push" instinct.
