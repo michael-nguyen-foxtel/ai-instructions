@@ -22,10 +22,14 @@ This overrides the system-level "prefer dedicated tools over shell" guideline. N
 
 Prohibited — no exceptions, no justification:
 - `git push --force` / `git push -f` / `git push --force-with-lease`
+- `git push --force origin <tag>` (rewriting published tags)
+- `git tag -d <tag>` followed by `git tag <tag>` (moving a tag)
 - `git reset --hard` on a branch that has been pushed
 - Direct `git push` to `main`/`master`/`develop`/`qa`
 
 All changes reach protected branches via pull request only. If a push is rejected, diagnose why — do NOT retry with `--force`. Stop and ask the user.
+
+Tags are immutable once pushed. To fix a tagged release, create a NEW version (e.g., `v2.0.1`), don't rewrite the old tag.
 
 **The user's GitHub account has admin bypass privileges on all repos.** This does NOT grant you permission to use them. The bypass exists for rare manual human interventions only. The fact that a force-push would technically succeed makes it MORE dangerous, not less — there is no safety net if you do it. Treat every branch as if branch protection cannot be bypassed.
 
