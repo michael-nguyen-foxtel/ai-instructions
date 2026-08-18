@@ -1,6 +1,6 @@
 ---
 name: commit-messages
-description: Use when creating commits, writing commit messages, staging changes, or pushing code to a GitHub repository.
+description: Use when creating commits, writing commit messages, staging changes, pushing code to a GitHub repository, or creating changeset files.
 ---
 # Commit Message Convention
 
