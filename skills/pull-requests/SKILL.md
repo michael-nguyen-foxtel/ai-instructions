@@ -12,11 +12,21 @@ Always create PRs via shell using `gh`:
 gh pr create \
   --base main \
   --title "type(scope): TICKET | description" \
+  --assignee @me \
+  --label "<relevant-labels>" \
   --body "## Summary
 ..."
 ```
 
-For stacked PRs managed by Graphite: `gt stack submit`
+### Labels
+
+Add relevant labels based on the PR type:
+- `feat` / `fix` / `chore` / `refactor` / `docs` / `test` / `ci` — match the commit type
+- Add any additional context labels the repo uses (check existing labels with `gh label list`)
+
+If unsure which labels exist, check first: `gh label list --limit 50`
+
+For stacked PRs managed by Graphite: `gt stack submit` (assignee and labels set via Graphite config or added after with `gh pr edit`)
 
 ## PR Title Format
 
