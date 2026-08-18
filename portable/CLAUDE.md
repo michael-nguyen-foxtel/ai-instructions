@@ -37,10 +37,22 @@ Detect from `package.json` scripts. Common patterns:
 
 ## Changesets (if configured)
 
-If `.changeset/config.json` exists:
-- Every PR changing source code needs a changeset: `npx changeset`
-- Bump levels: `patch` (refactor/fix), `minor` (new feature/export), `major` (breaking)
-- Skip for CI/docs/test-only changes
+If `.changeset/config.json` exists, create changeset files directly (do NOT run `npx changeset` — it's interactive):
+
+1. Read package name from `package.json`
+2. Bump type: `feat` → minor, `fix`/`perf` → patch, breaking → major, `chore`/`refactor` → patch (if affects published output)
+3. Filename: `<ticket>-<short-description>.md` (kebab-case, e.g., `web-1234-add-stats-table.md`)
+4. Write to `.changeset/<filename>.md`:
+   ```markdown
+   ---
+   "<package-name>": <bump-type>
+   ---
+   
+   type(scope): TICKET | description
+   ```
+5. Stage with the commit — same commit as the code change, not separate
+
+Skip changeset for: CI/docs/test-only/dev-tooling changes (anything consumers won't notice).
 
 ## Stacked PRs (Graphite)
 
