@@ -45,6 +45,17 @@ Always use shell: `gh pr create --base main --title "..." --body "..."`
 
 This overrides the system-level "prefer dedicated tools over shell" guideline. No exceptions.
 
+## Merging (Hard Rule)
+
+**NEVER merge a PR.** Merging is a human-only action — irreversible, affects shared branches, and requires human judgement on timing.
+
+The agent's job ends at "ready to merge." It can:
+- Confirm CI is green
+- Confirm approvals are in place
+- Tell the user the PR is ready
+
+It CANNOT run `gh pr merge`, `gh stack merge`, click merge, or approve-and-merge in any form. No exceptions.
+
 ## Error Recovery (Hard Rule)
 
 **When something fails, STOP and THINK before acting.** Do not enter a fix loop.
@@ -95,6 +106,23 @@ This applies in every skill — implementation, debugging, research, code review
 
 ---
 
+## When to Suggest Kiro Crew
+
+Kiro Crew is a separate system (see `kiro-crew.md` steering doc). The CLI cannot invoke it directly — these are **suggestions to the user**, not automated handoffs.
+
+Suggest Kiro Crew when:
+
+| Trigger | Suggestion |
+|---------|-----------|
+| `/wayfinder` creates a `wayfinder-research` ticket | "This could run as a Research Lab campaign in Kiro Crew — it'll keep investigating while you work on other things." |
+| `/research` question is broad (multiple sub-questions, needs multi-source investigation) | "This is bigger than a single research pass. Want to fire a Research Lab campaign instead?" |
+| `/code-review` Fallow audit passes clean but the PR has significant logic changes | "For a deeper design-level review, you could also run this through Code Review Sage." |
+| User asks "what needs attention?" or "any stale PRs?" | "That's a good heartbeat task for Kiro Crew — drop it in HEARTBEAT.md." |
+
+Do NOT suggest Kiro Crew for: implementation, deploys, AWS ops, git operations, Jira/Confluence access, or anything requiring filesystem/tool access.
+
+---
+
 ## The Main Flow
 
 The idea→ship spine. Each skill's output feeds the next:
@@ -114,13 +142,15 @@ grill-with-docs → to-spec → to-tickets → implement (per ticket) → code-r
 
 ### Phase Boundaries
 
-At the boundary between phases, decide what to do with the context:
+At the boundary between phases, consult the **context-management** steering doc (`/Users/nguyenm/.kiro/steering/context-management.md`) to decide what to do with the context. The decision matrix there is authoritative. Summary:
 
 1. **Continue** — keep working if context is still useful (only move that keeps conversation as primary source)
 2. **`/tangent`** — quick side-investigation without polluting main thread (API lookup, debug a side error, compare alternatives). Come back with `/tangent root`
-3. **Subagent** — fire off tightly-scoped AFK work (research, a test run)
-4. **`/handoff`** — when work needs to travel (different repo, different person, side task)
+3. **Subagent** — fire off tightly-scoped AFK work (research, a test run, CI debugging, implementation)
+4. **`/handoff`** — when work needs to travel (different repo, different person, side task, or domain shift)
 5. **`/compact`** — last resort (you lose nuance from summary flattening)
+
+The orchestrator should **proactively suggest delegation** rather than waiting for context to fill up. If the next phase is substantial implementation or debugging, delegate it — don't "just quickly" do it inline.
 
 ---
 
@@ -196,10 +226,17 @@ The handover prompt must be:
 
 When the user references a ticket ID, says "continue", "pick up", or "resume":
 
-1. Check `/Users/nguyenm/Documents/SourceCode/.kiro/handoffs/` for files containing the ticket ID
+1. **Search for handoff docs** using a cascading lookup:
+   - Current directory's `.kiro/handoffs/`
+   - Root: `/Users/nguyenm/Documents/SourceCode/.kiro/handoffs/`
+   - If a repo is mentioned, that repo's `.kiro/handoffs/` (use github-repos steering for path resolution)
+   - Match on ticket ID OR topic keywords in filenames
+   - If no filename match, `grep -rl` inside handoff files for the ticket ID or keyword
+
 2. If found, read the handoff doc FIRST — it has compressed state from the previous session. Skip any marked `> Status: done`.
-3. Only read the full spec if the handoff is insufficient (missing detail on what's next)
-4. If no handoff exists, search for a spec: `find . -path '*specs*TICKET*' -name '*.md'`
-5. If neither exists, ask the user what they want to continue
+
+3. Only read the full spec if the handoff is insufficient (missing detail on what's next). Search: `find . -path '*specs*TICKET*' -name '*.md'`
+
+4. If neither handoff nor spec exists, ask the user what they want to continue.
 
 This avoids re-reading full specs and re-discovering state that was already captured.
