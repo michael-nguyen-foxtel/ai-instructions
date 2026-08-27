@@ -240,3 +240,18 @@ When the user references a ticket ID, says "continue", "pick up", or "resume":
 4. If neither handoff nor spec exists, ask the user what they want to continue.
 
 This avoids re-reading full specs and re-discovering state that was already captured.
+
+### Handoff hygiene (start of week)
+
+On the first session of the week (Monday, or if the user hasn't been active for 2+ days), proactively scan for handoffs marked `> Status: done` and offer to archive them:
+
+```bash
+grep -rl "Status: done" /Users/nguyenm/Documents/SourceCode/.kiro/handoffs/ 2>/dev/null
+```
+
+If any are found, list them and ask: "These handoffs are marked done — want me to archive them?" Archive means moving to `.kiro/handoffs/archive/`.
+
+Also check repo-level handoffs if currently working in a repo:
+```bash
+grep -rl "Status: done" .kiro/handoffs/ 2>/dev/null
+```
