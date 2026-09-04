@@ -7,7 +7,9 @@ description: CI/CD and infrastructure conventions. Use when working on GitHub Ac
 
 ## GitHub Actions
 
-- **Pin actions to SHA** — never tags. Tags are mutable. `uses: actions/checkout@<sha>`
+- **Pin third-party actions to SHA** — never tags. Tags are mutable, so a compromised or force-moved tag on an untrusted publisher runs arbitrary code with your secrets in scope. `uses: some-org/some-action@<sha> # v1.2.3` (keep the version in a trailing comment).
+- **First-party actions may use tags** — `actions/*` (and `github/*`) are GitHub-controlled and low supply-chain risk; `uses: actions/checkout@v5` is fine. SHA-pinning them is optional, not required.
+- **Keep first-party action majors current** — old majors run on Node runtimes GitHub removes from runners (e.g. `checkout@v3`/`setup-node@v3` are on the deprecated Node 16; the current runtime is Node 24). Bump the major even though you don't SHA-pin, or the workflow throws deprecation warnings and eventually breaks. `checkout@v5` requires Actions Runner ≥ v2.327.1 (guaranteed on GitHub-hosted `ubuntu-latest`; verify for self-hosted).
 - **Include `timeout-minutes`** on all jobs
 - **Include `concurrency`** controls to prevent parallel runs on the same branch
 - **Never hardcode environment values** — use secrets or vars
@@ -16,7 +18,8 @@ description: CI/CD and infrastructure conventions. Use when working on GitHub Ac
 
 ### Anti-patterns to flag
 
-- Actions pinned to tags instead of SHAs
+- Third-party actions pinned to tags instead of SHAs (first-party `actions/*` tags are fine)
+- First-party action majors left on a deprecated Node runtime (e.g. `@v3` on Node 16)
 - Missing concurrency controls
 - Secrets referenced but not configured in repo settings
 - Missing timeout-minutes
