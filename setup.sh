@@ -147,6 +147,7 @@ install_bin() {
   local count=0
   for script in "$BIN_SOURCE"/*; do
     [ -f "$script" ] || continue
+    case "$script" in *.md) continue;; esac  # skip docs (README.md etc.)
     cp "$script" "$BIN_TARGET/"
     chmod +x "$BIN_TARGET/$(basename "$script")"
     count=$((count + 1))
