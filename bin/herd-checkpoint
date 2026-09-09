@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# herd-checkpoint — snapshot the current Herdr session as a human-readable map,
+# and pin the machine-actionable subset for herd-restore.
+#
+# Run this whenever you want to "save" your setup — before a shutdown, before
+# stepping away, or just to record what you were working on.
+#
+# Produces two things:
+#   1. A timestamped markdown MAP of all running workspaces + agents
+#      (~/.config/herd/checkpoints/YYYY-MM-DD_HHMM.md), plus a `latest.md`
+#      symlink. The map is the reliable safety net — read it after a restart
+#      and rebuild from it, even when session IDs are ambiguous.
+#   2. Best-effort session PINS via herd-pin-all, so `herd-restore` can auto-
+#      rebuild the sessions it can resolve.
+#
+# Usage:
+#   herd-checkpoint            # write the map + pin sessions
+#   herd-checkpoint --map-only # write the map, skip pinning
+#
+# (bash 3.2 compatible — no associative arrays.)
+
+set -euo pipefail
+
+CHECKPOINT_DIR="$HOME/.config/herd/checkpoints"
+MAP_ONLY=false
+[ "${1:-}" = "--map-only" ] && MAP_ONLY=true
+
+command -v jq >/dev/null || { echo "jq required"; exit 1; }
+
+mkdir -p "$CHECKPOINT_DIR"
+
+stamp="$(date '+%Y-%m-%d_%H%M')"
+human="$(date '+%A %d %B %Y, %H:%M')"
+map_file="$CHECKPOINT_DIR/$stamp.md"
+
+label_for_ws() {
+  herdr workspace list 2>/dev/null \
+    | jq -r --arg w "$1" '.result.workspaces[]? | select(.workspace_id == $w) | .label // ""'
+}
+
+# --- Write the map ---
+{
+  echo "# Herdr checkpoint — $human"
+  echo ""
+  echo "A snapshot of what was running. After a restart: run \`herd-restore\` for the"
+  echo "pinned sessions, and use this map to manually rebuild anything else with"
+  echo "\`herd-launch <name> --repo <dir>\`."
+  echo ""
+  echo "## Workspaces & agents"
+  echo ""
+  echo "| Workspace | Directory | Agent | State |"
+  echo "|-----------|-----------|-------|-------|"
+
+  # All agents (not just Kiro) for a complete picture
+  herdr agent list 2>/dev/null \
+    | jq -r '.result.agents[]? | "\(.workspace_id)\t\(.cwd)\t\(.agent)\t\(.agent_status)"' \
+    | while IFS=$'\t' read -r wid cwd agent status; do
+        [ -n "$wid" ] || continue
+        label="$(label_for_ws "$wid")"
+        [ -n "$label" ] || label="$wid"
+        # Shorten home dir for readability
+        short_cwd="${cwd/#$HOME/~}"
+        echo "| $label | $short_cwd | $agent | $status |"
+      done
+
+  echo ""
+  echo "## All workspaces (including those without a detected agent)"
+  echo ""
+  herdr workspace list 2>/dev/null \
+    | jq -r '.result.workspaces[]? | "- \(.label // .workspace_id)"'
+
+  echo ""
+  echo "## Rebuild hints"
+  echo ""
+  echo "- Pinned (auto-restorable **with history**): \`herd-restore\`  — see \`herd-pin --list\`"
+  echo "- Anything NOT pinned is lost on restart. \`herd-launch <name> --repo <dir>\`"
+  echo "  starts a **fresh** session (no history) — good for a clean start, no good"
+  echo "  for resuming work. To bring back history, the session must have been pinned"
+  echo "  (\`herd-pin <slug> <session-id>\`) BEFORE the restart."
+  echo "- Names with spaces/caps are fine for \`herd-launch\` (label kept; slug derived)."
+  echo "- Exact re-pin from inside a pane: \`herd-pin-current <name>\`"
+} > "$map_file"
+
+# Update the latest symlink
+ln -sfn "$map_file" "$CHECKPOINT_DIR/latest.md"
+
+echo "✓ Map written: $map_file"
+echo "  (also linked as $CHECKPOINT_DIR/latest.md)"
+
+# --- Pin the actionable subset ---
+if $MAP_ONLY; then
+  echo ""
+  echo "Skipped pinning (--map-only). Run 'herd-pin-all' separately if you want pins."
+else
+  echo ""
+  echo "Pinning sessions for herd-restore..."
+  echo ""
+  herd-pin-all
+fi
+
+echo ""
+echo "To review the map later:  open $CHECKPOINT_DIR/latest.md"
