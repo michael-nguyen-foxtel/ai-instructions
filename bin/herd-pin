@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# herd-pin — pin a Kiro session to your restore manifest with a friendly name
+#
+# Usage:
+#   herd-pin <name> <session-id> [repo-path]
+#     name         friendly label + Herdr workspace name (lowercase slug)
+#     session-id   Kiro session UUID (from `herd-sessions`)
+#     repo-path    working directory (defaults to the session's saved cwd)
+#
+#   herd-pin --list            show pinned sessions
+#   herd-pin --remove <name>   unpin
+#
+# Manifest: ~/.config/herd/restore.tsv  (name<TAB>session_id<TAB>cwd)
+
+set -euo pipefail
+
+MANIFEST="$HOME/.config/herd/restore.tsv"
+SESSIONS_DIR="$HOME/.kiro/sessions/cli"
+mkdir -p "$(dirname "$MANIFEST")"
+touch "$MANIFEST"
+
+case "${1:-}" in
+  --list|"")
+    if [ ! -s "$MANIFEST" ]; then
+      echo "No pinned sessions. Pin one with: herd-pin <name> <session-id>"
+      exit 0
+    fi
+    printf '%-16s %-38s %s\n' "NAME" "SESSION ID" "DIRECTORY"
+    while IFS=$'\t' read -r name id cwd; do
+      [ -n "$name" ] || continue
+      printf '%-16s %-38s %s\n' "$name" "$id" "$cwd"
+    done < "$MANIFEST"
+    exit 0
+    ;;
+  --remove)
+    name="${2:?usage: herd-pin --remove <name>}"
+    tmp=$(mktemp)
+    awk -F'\t' -v n="$name" '$1 != n' "$MANIFEST" > "$tmp"
+    mv "$tmp" "$MANIFEST"
+    echo "Unpinned '$name'"
+    exit 0
+    ;;
+esac
+
+# Pin mode
+name="${1:?usage: herd-pin <name> <session-id> [repo-path]}"
+id="${2:?session-id required — run herd-sessions to find it}"
+cwd="${3:-}"
+
+# Validate name is a legal Herdr agent slug
+if [[ ! "$name" =~ ^[a-z][a-z0-9_-]{0,31}$ ]]; then
+  echo "Error: name must be lowercase, start with a letter: [a-z][a-z0-9_-]{0,31}"
+  exit 1
+fi
+
+# Resolve cwd from the session file if not given
+if [ -z "$cwd" ]; then
+  sfile="$SESSIONS_DIR/$id.json"
+  if [ -f "$sfile" ]; then
+    cwd=$(jq -r '.cwd // empty' "$sfile")
+  fi
+  if [ -z "$cwd" ]; then
+    echo "Error: couldn't resolve cwd for session $id. Pass repo-path explicitly."
+    exit 1
+  fi
+fi
+
+# Remove any existing pin with the same name, then append.
+# Use awk (portable) to drop the matching row — NOT grep -P, which BSD/macOS
+# grep does not support and which would silently empty the manifest.
+tmp=$(mktemp)
+awk -F'\t' -v n="$name" '$1 != n' "$MANIFEST" > "$tmp"
+mv "$tmp" "$MANIFEST"
+# Guarantee the file ends in a newline before appending (a manifest without a
+# trailing newline would otherwise glue two pins onto one corrupt line).
+if [ -s "$MANIFEST" ] && [ "$(tail -c1 "$MANIFEST" | od -An -tx1 | tr -d ' \n')" != "0a" ]; then
+  printf '\n' >> "$MANIFEST"
+fi
+printf '%s\t%s\t%s\n' "$name" "$id" "$cwd" >> "$MANIFEST"
+
+echo "Pinned '$name' → $id"
+echo "  cwd: $cwd"

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# herd-restore — rebuild Herdr workspaces and resume pinned Kiro sessions
+#
+# Run this after a restart to bring back your pinned sessions.
+# Reads ~/.config/herd/restore.tsv (populated by herd-pin).
+#
+# Usage:
+#   herd-restore            # rebuild all pinned sessions
+#   herd-restore --dry-run  # show what it would do, no changes
+
+set -euo pipefail
+
+MANIFEST="$HOME/.config/herd/restore.tsv"
+DRY_RUN=false
+[ "${1:-}" = "--dry-run" ] && DRY_RUN=true
+
+if [ ! -s "$MANIFEST" ]; then
+  echo "No pinned sessions in $MANIFEST"
+  echo "Pin some first: herd-pin <name> <session-id>"
+  exit 1
+fi
+
+# Ensure Herdr server is up (starting a client spawns the server if needed).
+# We only need the server, not an attached client, so we probe with a CLI call.
+if ! herdr ping >/dev/null 2>&1; then
+  echo "Herdr server not responding. Start it once with 'herdr' then detach, or"
+  echo "it will be started by the first workspace command below."
+fi
+
+while IFS=$'\t' read -r name id cwd; do
+  [ -n "$name" ] || continue
+
+  echo "→ Restoring '$name'  (session $id)"
+  echo "  cwd: $cwd"
+
+  if $DRY_RUN; then
+    echo "  [dry-run] herdr workspace create --cwd $cwd --label $name --no-focus"
+    echo "  [dry-run] herdr agent start $name --kind kiro --pane <pane> -- --resume-id $id"
+    continue
+  fi
+
+  # Create the workspace, capture the root pane
+  created=$(herdr workspace create --cwd "$cwd" --label "$name" --no-focus)
+  pane_id=$(printf '%s' "$created" | jq -r '.result.root_pane.pane_id')
+
+  # Start Kiro in that pane, resuming the exact session by ID.
+  # Args after -- are passed straight to the kiro executable.
+  herdr agent start "$name" --kind kiro --pane "$pane_id" -- --resume-id "$id"
+
+  echo "  ✓ started, resuming session"
+  echo ""
+done < "$MANIFEST"
+
+echo "Done. Run 'herdr' and check the sidebar."

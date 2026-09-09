@@ -14,6 +14,8 @@ SKILLS_SOURCE="$SCRIPT_DIR/skills"
 SKILLS_TARGET="$HOME/.kiro/skills"
 STEERING_SOURCE="$SCRIPT_DIR/steering"
 STEERING_TARGET="$HOME/.kiro/steering"
+BIN_SOURCE="$SCRIPT_DIR/bin"
+BIN_TARGET="$HOME/.local/bin"
 
 # Skill categories
 declare -A SKILL_CATEGORIES
@@ -135,6 +137,23 @@ install_category() {
   echo "  ✓ Installed $count skills"
 }
 
+# Deploy the helper scripts in bin/ (e.g. the herd-* Herdr tooling) to
+# ~/.local/bin, ensuring each is executable. No-op if bin/ is empty/missing.
+install_bin() {
+  if [ ! -d "$BIN_SOURCE" ] || [ -z "$(ls -A "$BIN_SOURCE" 2>/dev/null)" ]; then
+    return 0
+  fi
+  mkdir -p "$BIN_TARGET"
+  local count=0
+  for script in "$BIN_SOURCE"/*; do
+    [ -f "$script" ] || continue
+    cp "$script" "$BIN_TARGET/"
+    chmod +x "$BIN_TARGET/$(basename "$script")"
+    count=$((count + 1))
+  done
+  echo "  ✓ Installed $count helper script(s) to $BIN_TARGET"
+}
+
 get_skills_in_category() {
   local category="$1"
   local skills=()
@@ -165,6 +184,9 @@ if [[ "$mode" == "--all" ]]; then
   mkdir -p "$STEERING_TARGET"
   cp "$STEERING_SOURCE"/*.md "$STEERING_TARGET/"
   echo "  ✓ Steering docs installed"
+  echo ""
+  echo "Installing helper scripts to: $BIN_TARGET"
+  install_bin
 
 elif [[ "$mode" == "--universal" ]]; then
   echo "Installing universal skills to: $SKILLS_TARGET"
@@ -175,6 +197,9 @@ elif [[ "$mode" == "--universal" ]]; then
     echo "${CATEGORY_NAMES[$category]}"
     install_category "$category"
   done
+  echo ""
+  echo "Installing helper scripts to: $BIN_TARGET"
+  install_bin
 
 else
   # Interactive mode
@@ -243,6 +268,20 @@ else
     echo "  ✓ Steering docs installed"
   else
     echo "  Skipped."
+  fi
+
+  # Helper scripts (bin/)
+  if [ -d "$BIN_SOURCE" ] && [ -n "$(ls -A "$BIN_SOURCE" 2>/dev/null)" ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Helper scripts (Herdr session tooling: herd-launch, herd-restore, herd-pin, …)"
+    echo ""
+    read -p "  Install helper scripts to $BIN_TARGET? [y/N]: " binchoice
+    if [[ "$binchoice" == "y" || "$binchoice" == "Y" ]]; then
+      install_bin
+    else
+      echo "  Skipped."
+    fi
   fi
 
   echo ""

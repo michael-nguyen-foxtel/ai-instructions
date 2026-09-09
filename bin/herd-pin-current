@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# herd-pin-current — pin the Kiro session you're CURRENTLY in.
+#
+# Must be run from a shell inside the Kiro pane you want to pin. It reads
+# $KIRO_SESSION_ID (set by Kiro, inherited by child shells) so it always
+# targets the exact session running here — no directory-ambiguity guessing.
+#
+# Usage:
+#   herd-pin-current <name>       # name = friendly label + workspace slug
+#   herd-pin-current              # auto-names from the current directory
+#
+# Delegates the actual write to herd-pin.
+
+set -euo pipefail
+
+if [ -z "${KIRO_SESSION_ID:-}" ]; then
+  echo "Error: KIRO_SESSION_ID is not set."
+  echo "Run this from a shell INSIDE the Kiro session you want to pin."
+  echo "(In Kiro, shell out or use a shell command; the env var is inherited.)"
+  exit 1
+fi
+
+id="$KIRO_SESSION_ID"
+cwd="$(pwd)"
+
+# Name: use the argument, or derive a slug from the directory basename
+if [ $# -ge 1 ]; then
+  name="$1"
+else
+  base="$(basename "$cwd")"
+  # Lowercase, replace non-slug chars with hyphens, trim leading non-letters
+  name="$(echo "$base" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_-]+/-/g; s/^[^a-z]+//; s/-+$//')"
+  [ -n "$name" ] || name="session"
+fi
+
+echo "Pinning current session:"
+echo "  name: $name"
+echo "  id:   $id"
+echo "  cwd:  $cwd"
+
+herd-pin "$name" "$id" "$cwd"

@@ -7,6 +7,7 @@ Version-controlled snapshot of my AI agent skills and steering configuration.
 ```
 ~/.kiro/skills/     ← LIVE (edit here, immediate effect in Kiro CLI + IDE)
 ~/.kiro/steering/   ← LIVE (always-on context for all sessions)
+~/.local/bin/       ← LIVE (herd-* Herdr session tooling)
          │
          │  rsync (periodic checkpoint)
          ▼
@@ -20,9 +21,10 @@ this repo           ← VERSION HISTORY (git log of how skills evolve)
 ```
 ├── skills/          ← mirrors ~/.kiro/skills/ (all universal skills)
 ├── steering/        ← mirrors ~/.kiro/steering/ (always-on context)
+├── bin/             ← herd-* Herdr session tooling → ~/.local/bin/
 ├── copilot/         ← lightweight Copilot instruction files
 ├── agents/          ← Kiro CLI subagent definitions
-├── setup.sh         ← installs skills into ~/.kiro/ (for Kiro CLI)
+├── setup.sh         ← installs skills, steering + bin into place
 ├── install.sh       ← installs Copilot instructions into a repo
 └── README.md
 ```
@@ -162,6 +164,9 @@ Edit directly in `~/.kiro/skills/`. Changes are live immediately in Kiro CLI and
 cd ~/Documents/SourceCode/ai-instructions
 rsync -av --delete ~/.kiro/skills/ ./skills/
 rsync -av --delete ~/.kiro/steering/ ./steering/
+# bin/ is a targeted copy, NOT an rsync mirror — ~/.local/bin holds the herdr
+# binary and other tools that must not be pulled into the repo.
+for s in bin/*; do cp "$HOME/.local/bin/$(basename "$s")" "$s"; done
 git add -A && git commit -m "sync: $(date +%Y-%m-%d)"
 git push
 ```

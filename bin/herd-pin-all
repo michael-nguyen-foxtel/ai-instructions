@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# herd-pin-all — safety net: pin every currently-running Kiro session so
+# herd-restore can rebuild them after a shutdown/restart.
+#
+# HONEST CAVEAT: Herdr's `agent list` exposes each pane's directory but NOT
+# its Kiro session ID (Herdr tracks processes, not conversations). So this
+# script resolves the session by picking the most-recently-modified session
+# file in each agent's cwd. That is:
+#   - EXACT      when only one Kiro session exists for that directory
+#   - BEST-EFFORT when several sessions share a directory (it picks the newest;
+#                 the others in that dir cannot be distinguished from outside)
+#
+# For sessions you truly cannot lose, prefer `herd-pin-current` from INSIDE
+# the pane (reads $KIRO_SESSION_ID — always exact).
+#
+# Usage:
+#   herd-pin-all              # pin all running Kiro sessions
+#   herd-pin-all --dry-run    # show what it would pin, change nothing
+#
+# (Written for bash 3.2 — no associative arrays.)
+
+set -euo pipefail
+
+SESSIONS_DIR="$HOME/.kiro/sessions/cli"
+DRY_RUN=false
+[ "${1:-}" = "--dry-run" ] && DRY_RUN=true
+
+command -v jq >/dev/null || { echo "jq required"; exit 1; }
+
+# Look up a workspace label by id (linear scan of `workspace list`)
+label_for_ws() {
+  local wid="$1"
+  herdr workspace list 2>/dev/null \
+    | jq -r --arg w "$wid" '.result.workspaces[]? | select(.workspace_id == $w) | .label // ""'
+}
+
+# Count session files whose cwd matches the target dir
+count_sessions_for_dir() {
+  local target="$1" n=0 f d
+  for f in "$SESSIONS_DIR"/*.json; do
+    [ -f "$f" ] || continue
+    d=$(jq -r '.cwd // empty' "$f" 2>/dev/null) || continue
+    [ "$d" = "$target" ] && n=$(( n + 1 ))
+  done
+  echo "$n"
+}
+
+# Echo the session_id of the most-recently-modified session file for a cwd
+newest_session_for_dir() {
+  local target="$1" newest="" newest_mtime=0 f d m
+  for f in "$SESSIONS_DIR"/*.json; do
+    [ -f "$f" ] || continue
+    d=$(jq -r '.cwd // empty' "$f" 2>/dev/null) || continue
+    [ "$d" = "$target" ] || continue
+    m=$(stat -f '%m' "$f" 2>/dev/null || echo 0)
+    if [ "$m" -gt "$newest_mtime" ]; then
+      newest_mtime="$m"
+      newest=$(jq -r '.session_id // empty' "$f" 2>/dev/null)
+    fi
+  done
+  echo "$newest"
+}
+
+# Slugify into a legal agent name [a-z][a-z0-9_-]{0,31}
+slugify() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9_-]+/-/g; s/^[^a-z]+//; s/-+$//' \
+    | cut -c1-32
+}
+
+echo "Scanning running Kiro agents..."
+echo ""
+
+# Track already-pinned dirs in a plain newline-delimited string (bash 3.2 safe)
+pinned_dirs=""
+exact=0; besteffort=0; skipped=0
+
+while IFS=$'\t' read -r wid cwd status; do
+  [ -n "$cwd" ] || continue
+
+  label="$(label_for_ws "$wid")"
+  [ -n "$label" ] || label="$wid"
+  name="$(slugify "$label")"
+  [ -n "$name" ] || name="$(slugify "$(basename "$cwd")")"
+  [ -n "$name" ] || name="session"
+
+  # Already pinned this dir this run? (grep the tracker string)
+  if printf '%s\n' "$pinned_dirs" | grep -qxF "$cwd"; then
+    echo "  ⚠ skip   $name  ($cwd)"
+    echo "           another session in this dir was already pinned; cannot"
+    echo "           distinguish this one from outside. Use herd-pin-current inside it."
+    skipped=$(( skipped + 1 ))
+    continue
+  fi
+
+  id="$(newest_session_for_dir "$cwd")"
+  if [ -z "$id" ]; then
+    echo "  ⚠ skip   $name  (no session file found for $cwd)"
+    skipped=$(( skipped + 1 ))
+    continue
+  fi
+
+  count="$(count_sessions_for_dir "$cwd")"
+  if [ "$count" -gt 1 ]; then
+    tag="BEST-EFFORT (newest of $count in this dir)"
+    besteffort=$(( besteffort + 1 ))
+  else
+    tag="exact"
+    exact=$(( exact + 1 ))
+  fi
+
+  echo "  • $name"
+  echo "      id:   $id  [$tag]"
+  echo "      cwd:  $cwd"
+
+  if ! $DRY_RUN; then
+    herd-pin "$name" "$id" "$cwd" >/dev/null
+  fi
+  pinned_dirs="$pinned_dirs
+$cwd"
+
+done < <(herdr agent list 2>/dev/null \
+          | jq -r '.result.agents[] | select(.agent == "kiro") | "\(.workspace_id)\t\(.cwd)\t\(.agent_status)"')
+
+echo ""
+if $DRY_RUN; then
+  echo "[dry-run] nothing written. Summary: $exact exact, $besteffort best-effort, $skipped skipped."
+else
+  echo "Pinned: $exact exact, $besteffort best-effort, $skipped skipped."
+  echo "Run 'herd-pin --list' to review, 'herd-restore' after a restart."
+fi
+
+if [ "$besteffort" -gt 0 ] || [ "$skipped" -gt 0 ]; then
+  echo ""
+  echo "Note: for any session you cannot lose, run 'herd-pin-current <name>'"
+  echo "from INSIDE that Kiro pane — it reads \$KIRO_SESSION_ID and is always exact."
+fi

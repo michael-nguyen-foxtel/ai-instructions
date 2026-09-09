@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# herd-launch — spin up a named Herdr workspace and start a coding agent in it.
+#
+# General-purpose: the name is any string (not just a ticket), the agent kind
+# is configurable (kiro, claude, codex, gemini, ...), and the prompt is optional.
+#
+# Usage:
+#   herd-launch <name> [options]
+#
+#   <name>                Workspace label — any string, spaces and mixed case OK
+#                         (e.g. "Quicksilver Migration"). The agent slug is
+#                         derived from it automatically: lowercased, spaces and
+#                         other illegal chars collapsed to '-'. Override with
+#                         --slug if the derived slug isn't what you want.
+#
+# Options:
+#   --repo <path>         Working directory (default: $PWD, or $HERD_REPO if set)
+#   --slug <slug>         Agent slug override ([a-z][a-z0-9_-]{0,31}). Defaults
+#                         to a slug derived from <name>.
+#   --kind <agent>        Agent kind (default: kiro). One of:
+#                           pi claude codex gemini cursor devin agy cline omp
+#                           mastracode opencode copilot kimi kiro droid amp grok
+#                           hermes kilo qodercli qwen maki
+#   --spec <path>         Send an "implement this spec" prompt referencing <path>
+#   --prompt "<text>"     Send a custom prompt after the agent starts
+#   --focus               Focus the new workspace (default: --no-focus)
+#   --dry-run             Print what would happen; make no changes
+#   -h, --help            Show this help
+#
+# Notes:
+#   --spec and --prompt are mutually exclusive. If neither is given, the agent
+#   starts with no prompt (a fresh session you can drive by hand).
+#
+# Examples:
+#   herd-launch "Quicksilver Migration" --repo ~/Documents/SourceCode/quicksilver
+#     → workspace label "Quicksilver Migration", agent slug "quicksilver-migration"
+#   herd-launch dashboard-refactor --repo ~/Documents/SourceCode/quicksilver
+#   herd-launch WEB-4601 --spec .kiro/specs/WEB-4601-SPEC.md
+#   herd-launch review --kind claude --prompt "Review the diff on this branch"
+#   herd-launch "Catch the Bus" --slug ctb --repo ~/Documents/SourceCode
+#   herd-launch experiment --dry-run
+
+set -euo pipefail
+
+# --- Defaults ---
+name=""
+slug=""
+repo="${HERD_REPO:-$PWD}"
+kind="kiro"
+spec=""
+prompt=""
+focus_flag="--no-focus"
+dry_run=false
+
+VALID_KINDS="pi claude codex gemini cursor devin agy cline omp mastracode opencode copilot kimi kiro droid amp grok hermes kilo qodercli qwen maki"
+
+usage() { sed -n '2,41p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+
+# --- Parse args ---
+if [ $# -eq 0 ]; then usage 1; fi
+
+name="$1"; shift
+case "$name" in -h|--help) usage 0;; esac
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo)   repo="${2:?--repo needs a path}"; shift 2;;
+    --slug)   slug="${2:?--slug needs a value}"; shift 2;;
+    --kind)   kind="${2:?--kind needs a value}"; shift 2;;
+    --spec)   spec="${2:?--spec needs a path}"; shift 2;;
+    --prompt) prompt="${2:?--prompt needs text}"; shift 2;;
+    --focus)  focus_flag=""; shift;;
+    --dry-run) dry_run=true; shift;;
+    -h|--help) usage 0;;
+    *) echo "Unknown option: $1" >&2; usage 1;;
+  esac
+done
+
+# --- Derive slug from name (unless overridden) ---
+if [ -z "$slug" ]; then
+  # lowercase, replace every run of illegal chars with a single '-',
+  # strip leading/trailing '-', then cap at 32 chars.
+  slug="$(printf '%s' "$name" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' \
+    | cut -c1-32 \
+    | sed -E 's/-+$//')"
+  # ensure it starts with a letter (slug may begin with a digit after collapsing)
+  if [[ ! "$slug" =~ ^[a-z] ]]; then
+    slug="a-$slug"
+    slug="$(printf '%s' "$slug" | cut -c1-32 | sed -E 's/-+$//')"
+  fi
+fi
+
+# --- Validate ---
+if [[ ! "$slug" =~ ^[a-z][a-z0-9_-]{0,31}$ ]]; then
+  echo "Error: '$name' → slug '$slug' is not a legal agent name." >&2
+  echo "Pass an explicit --slug matching [a-z][a-z0-9_-]{0,31}." >&2
+  exit 1
+fi
+
+if [[ " $VALID_KINDS " != *" $kind "* ]]; then
+  echo "Error: unknown --kind '$kind'." >&2
+  echo "Valid: $VALID_KINDS" >&2
+  exit 1
+fi
+
+if [ -n "$spec" ] && [ -n "$prompt" ]; then
+  echo "Error: --spec and --prompt are mutually exclusive." >&2
+  exit 1
+fi
+
+if [ ! -d "$repo" ]; then
+  echo "Error: repo path does not exist: $repo" >&2
+  exit 1
+fi
+
+# Build the prompt text (if any)
+prompt_text=""
+if [ -n "$spec" ]; then
+  prompt_text="Implement the spec at ${spec}. Run /implement-from-spec ${spec}"
+elif [ -n "$prompt" ]; then
+  prompt_text="$prompt"
+fi
+
+# --- Dry run ---
+if $dry_run; then
+  echo "[dry-run] would create:"
+  echo "  workspace: $name   (slug: $slug)"
+  echo "  repo:      $repo"
+  echo "  agent:     $kind"
+  echo "  focus:     ${focus_flag:-"(focus)"}"
+  if [ -n "$prompt_text" ]; then
+    echo "  prompt:    $prompt_text"
+  else
+    echo "  prompt:    (none — fresh session)"
+  fi
+  echo ""
+  echo "[dry-run] commands:"
+  echo "  herdr workspace create --cwd \"$repo\" --label \"$name\" $focus_flag"
+  echo "  herdr agent start \"$slug\" --kind $kind --pane <pane>"
+  [ -n "$prompt_text" ] && echo "  herdr agent prompt \"$slug\" \"$prompt_text\""
+  exit 0
+fi
+
+# --- Execute ---
+echo "→ Creating workspace '$name' ($kind) in $repo"
+created=$(herdr workspace create --cwd "$repo" --label "$name" $focus_flag)
+pane_id=$(printf '%s' "$created" | jq -r '.result.root_pane.pane_id')
+
+echo "  pane: $pane_id — starting $kind as '$slug'"
+herdr agent start "$slug" --kind "$kind" --pane "$pane_id"
+
+if [ -n "$prompt_text" ]; then
+  echo "  prompting..."
+  herdr agent prompt "$slug" "$prompt_text"
+fi
+
+echo "✓ '$name' is up. Run 'herdr' and check the sidebar."
