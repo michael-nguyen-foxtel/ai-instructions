@@ -166,7 +166,10 @@ rsync -av --delete ~/.kiro/skills/ ./skills/
 rsync -av --delete ~/.kiro/steering/ ./steering/
 # bin/ is a targeted copy, NOT an rsync mirror — ~/.local/bin holds the herdr
 # binary and other tools that must not be pulled into the repo.
-for s in bin/*; do cp "$HOME/.local/bin/$(basename "$s")" "$s"; done
+for s in bin/*; do
+  case "$s" in *.md) continue;; esac   # README.md lives only in the repo
+  cp "$HOME/.local/bin/$(basename "$s")" "$s"
+done
 git add -A && git commit -m "sync: $(date +%Y-%m-%d)"
 git push
 ```

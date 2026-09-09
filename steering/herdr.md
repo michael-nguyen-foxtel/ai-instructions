@@ -69,6 +69,27 @@ When the orchestrator creates parallel tickets:
 
 No scripts, no copy-paste, no handoff docs for parallel implementation. The orchestrator does it all via Herdr's CLI.
 
+## Session Persistence (the `herd-*` wrapper scripts)
+
+Alongside the raw `herdr` CLI, a set of `herd-*` helper scripts in `~/.local/bin` manage session save/restore. They are version-controlled in the `ai-instructions` repo under `bin/` and deployed by its `setup.sh`.
+
+| Script | Does |
+|--------|------|
+| `herd-launch <name>` | Create a workspace + start an agent. Fresh session (no history). |
+| `herd-sessions` | List Kiro sessions (last 14 days by default; `--days N` / `--all`). |
+| `herd-pin <slug> <id>` | Pin a session so `herd-restore` brings it back **with history**. |
+| `herd-restore` | Rebuild all pinned sessions after a restart. |
+| `herd-checkpoint` | Snapshot running workspaces + pin the resolvable ones. |
+
+### Rules
+
+- **History survives only if pinned.** `herd-restore` resumes **pinned** sessions with their conversation; `herd-launch` starts a **fresh** session. To keep work across a restart, pin it first (`herd-pin`) — pinning is the automated path, so pin sessions worth resuming as they're created.
+- **`herd-launch` names are labels; slugs are derived.** Pass any string as the workspace label (spaces and caps are fine, e.g. `"Quicksilver Migration"`); the agent slug is auto-derived. Use `--slug` to override. (The raw `herdr agent start` still needs a bare slug — see the agent-name rule below.)
+- **Matching a workspace to its session:** identify by cwd + first-message text via `herd-sessions`; when a directory has many sessions, file size distinguishes real work (large) from empty shells (~1 KB).
+- **Remove empty shells** with `herdr workspace close <id>` — dead panes with `agent_status: unknown` and no history clutter the sidebar.
+
+For the reasoning, the debugging history, and the cross-platform pitfalls behind these scripts, see `bin/README.md` in the `ai-instructions` repo (not loaded by default — read it when editing the tooling).
+
 ## Rules
 
 - **Worktrees through Herdr** — use `herdr worktree create` instead of raw `git worktree add`. Herdr tracks the workspace-to-worktree relationship.
