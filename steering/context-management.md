@@ -61,6 +61,7 @@ Every subagent dispatch must have:
 - **Bounded scope** — one logical task, not "implement everything"
 - **Success criterion** — how to tell it succeeded without reading its full output
 - **Working directory** — explicit path, never "figure it out"
+- **Known constraints, front-loaded** — list the conventions, lint rules, and gotchas the agent would otherwise rediscover by trial-and-error (write → tool rejects → revert → rewrite), and point it at ONE correct exemplar per pattern with "match this exactly." Rediscovery churn is the main *avoidable* cost of delegation; an exemplar plus a short "don't rediscover these" list eliminates most of it. Some self-correction is the safety loop working (it's how a green result is guaranteed) — target only avoidable churn, not all correction. Repo-specific constraints belong in that repo's steering so every dispatch inherits them.
 
 ### 4. Handoff Before Compact
 
