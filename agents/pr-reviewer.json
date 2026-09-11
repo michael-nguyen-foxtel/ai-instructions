@@ -10,7 +10,14 @@
     },
     "git": {
       "command": "uvx",
-      "args": ["mcp-server-git"]
+      "args": ["mcp-server-git"],
+      "disabledTools": [
+        "git_commit",
+        "git_add",
+        "git_reset",
+        "git_create_branch",
+        "git_checkout"
+      ]
     }
   },
   "welcomeMessage": "I'll review your current branch. Run `git status` first, or tell me the base branch to diff against (defaults to main)."

@@ -56,6 +56,35 @@ The agent's job ends at "ready to merge." It can:
 
 It CANNOT run `gh pr merge`, `gh stack merge`, click merge, or approve-and-merge in any form. No exceptions.
 
+## Subagent Tool Scoping (Hard Rule)
+
+**A subagent's MCP tool scope must match its declared job.** A read-only subagent
+holds only read-only tools; only a subagent whose stated job is to write may hold
+write tools, and never write tools that can reach a protected branch.
+
+This is the T2 Gate-2 "hard tool/permission boundary" principle made concrete: the
+strongest place to enforce a boundary is the server, not the model's good behaviour.
+Prefer, in order:
+
+1. **Server-side read-only mode** where the MCP server supports it (e.g. the official
+   `github/github-mcp-server` with `GITHUB_READ_ONLY=1` — a strict filter that
+   overrides all other config).
+2. **Exhaustive `disabledTools`** covering every write/mutate tool the server exposes
+   when no read-only switch exists (e.g. the archived community
+   `@modelcontextprotocol/server-github`, or `mcp-server-git`). A blocklist that
+   misses one write tool is a hole — enumerate the server's full tool list and
+   disable every writer, not just the obvious ones.
+
+When adding or editing a subagent (`agents/*.json`): read the MCP server's full tool
+list, classify each tool read vs write, and confirm the agent's `tools` +
+`disabledTools` leave zero write paths unless writing is its job. Verify by
+inspecting the resulting tool surface, not by trusting the prompt to behave.
+
+Current read-only subagents held to this: `researcher`, `devops`, `pr-reviewer`
+(their write tools are disabled at the server boundary). Why this rule exists: a
+`researcher` subagent once committed a file directly to `origin/main` through an
+unrestricted GitHub MCP server whose blocklist omitted `create_or_update_file`.
+
 ## Error Recovery (Hard Rule)
 
 **When something fails, STOP and THINK before acting.** Do not enter a fix loop.
