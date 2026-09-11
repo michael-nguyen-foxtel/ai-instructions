@@ -73,12 +73,16 @@ label_for_ws() {
   echo "## Rebuild hints"
   echo ""
   echo "- Pinned (auto-restorable **with history**): \`herd-restore\`  — see \`herd-pin --list\`"
+  echo "- **Exact pin (primary path):** \`herd-pin-current <name>\` from INSIDE a pane —"
+  echo "  reads \$KIRO_SESSION_ID, always resumes the right session. Use this for"
+  echo "  anything you cannot lose."
+  echo "- **Bulk pin (best-effort safety net):** \`herd-pin-all\` guesses one session"
+  echo "  per directory from outside; ambiguous when a dir has several sessions."
   echo "- Anything NOT pinned is lost on restart. \`herd-launch <name> --repo <dir>\`"
   echo "  starts a **fresh** session (no history) — good for a clean start, no good"
   echo "  for resuming work. To bring back history, the session must have been pinned"
-  echo "  (\`herd-pin <slug> <session-id>\`) BEFORE the restart."
+  echo "  BEFORE the restart."
   echo "- Names with spaces/caps are fine for \`herd-launch\` (label kept; slug derived)."
-  echo "- Exact re-pin from inside a pane: \`herd-pin-current <name>\`"
 } > "$map_file"
 
 # Update the latest symlink
@@ -93,9 +97,12 @@ if $MAP_ONLY; then
   echo "Skipped pinning (--map-only). Run 'herd-pin-all' separately if you want pins."
 else
   echo ""
-  echo "Pinning sessions for herd-restore..."
+  echo "Pinning sessions (best-effort safety net) for herd-restore..."
   echo ""
   herd-pin-all
+  echo ""
+  echo "For any session you cannot lose, also run 'herd-pin-current <name>' from"
+  echo "inside its pane — that is the exact, primary pin path."
 fi
 
 echo ""

@@ -130,8 +130,15 @@ else
   echo "Run 'herd-pin --list' to review, 'herd-restore' after a restart."
 fi
 
+# herd-pin-all is the BEST-EFFORT safety net, not the primary path. It cannot
+# see a pane's $KIRO_SESSION_ID from outside, so multi-session dirs are guesses.
+# Always steer the operator to the exact path for anything that matters.
+echo ""
+echo "ℹ herd-pin-all is a BEST-EFFORT safety net (bulk, dir-based guessing)."
+echo "  PRIMARY (exact) path: run 'herd-pin-current <name>' from INSIDE each pane"
+echo "  you care about — it reads \$KIRO_SESSION_ID and is always exact."
 if [ "$besteffort" -gt 0 ] || [ "$skipped" -gt 0 ]; then
   echo ""
-  echo "Note: for any session you cannot lose, run 'herd-pin-current <name>'"
-  echo "from INSIDE that Kiro pane — it reads \$KIRO_SESSION_ID and is always exact."
+  echo "  ($besteffort best-effort + $skipped skipped above are exactly the cases"
+  echo "   where the exact path matters most — re-pin those from inside their panes.)"
 fi

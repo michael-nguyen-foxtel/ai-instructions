@@ -2,53 +2,187 @@
 # herd-restore — rebuild Herdr workspaces and resume pinned Kiro sessions
 #
 # Run this after a restart to bring back your pinned sessions.
-# Reads ~/.config/herd/restore.tsv (populated by herd-pin).
+# Reads ~/.config/herd/restore.tsv (populated by herd-pin / herd-pin-current).
 #
 # Usage:
 #   herd-restore            # rebuild all pinned sessions
 #   herd-restore --dry-run  # show what it would do, no changes
+#
+# ── Architecture note (T13/L) ─────────────────────────────────────────────
+# The manifest-read + per-session rebuild logic is factored into a callable
+# core (`herd_restore_rebuild_all` / `herd_restore_one`) so a future Herdr
+# `[[startup]]` plugin can source this file and call the core directly instead
+# of shelling out to the whole script. The manual-trigger wrapper below
+# (arg parsing + the `main` call) is deliberately thin — the plugin becomes
+# its trigger, so we invest in the core, not the wrapper ergonomics.
+#
+# ── Resume mechanics (T10 gate finding, verified live 2026-09-11) ─────────
+# Herdr's canonical executable for `--kind kiro` is BARE `kiro-cli`. Kiro's
+# resume flags live on the `chat` SUBCOMMAND, and bare `kiro-cli` SILENTLY
+# DROPS `--resume-id` and starts a FRESH session (the long-standing "restored
+# as a blank chat" bug). The passthrough after `--` must therefore be
+# `chat --resume-id <id>`, NOT `--resume-id <id>`.
+#   WRONG: herdr agent start … -- --resume-id <id>       # starts fresh
+#   RIGHT: herdr agent start … -- chat --resume-id <id>  # resumes
 
 set -euo pipefail
 
-MANIFEST="$HOME/.config/herd/restore.tsv"
-DRY_RUN=false
-[ "${1:-}" = "--dry-run" ] && DRY_RUN=true
+MANIFEST="${HERD_RESTORE_MANIFEST:-$HOME/.config/herd/restore.tsv}"
+SESSIONS_DIR="${KIRO_SESSIONS_DIR:-$HOME/.kiro/sessions/cli}"
 
-if [ ! -s "$MANIFEST" ]; then
-  echo "No pinned sessions in $MANIFEST"
-  echo "Pin some first: herd-pin <name> <session-id>"
-  exit 1
-fi
+# ── Single-process lock helpers ───────────────────────────────────────────
+# Kiro writes <session_id>.lock = {"pid":N,"started_at":"..."} next to each
+# session file while it is open. Resuming a session whose lock PID is still a
+# live kiro-cli process collides with Kiro's single-process-per-session lock
+# and fails. We detect that and skip, rather than start a doomed/fresh pane.
 
-# Ensure Herdr server is up (starting a client spawns the server if needed).
-# We only need the server, not an attached client, so we probe with a CLI call.
-if ! herdr ping >/dev/null 2>&1; then
-  echo "Herdr server not responding. Start it once with 'herdr' then detach, or"
-  echo "it will be started by the first workspace command below."
-fi
+# Echo "alive" if the given session currently has a live-process lock, else "".
+session_is_active() {
+  local id="$1" lock pid comm
+  lock="$SESSIONS_DIR/$id.lock"
+  [ -f "$lock" ] || { echo ""; return 0; }
+  pid=$(jq -r '.pid // empty' "$lock" 2>/dev/null || echo "")
+  [ -n "$pid" ] || { echo ""; return 0; }
+  # Is that PID alive AND a kiro process? (a recycled PID for something else
+  # should not count as an active Kiro session)
+  comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "")
+  if [ -n "$comm" ] && printf '%s' "$comm" | grep -qi 'kiro'; then
+    echo "alive"
+  else
+    echo ""
+  fi
+}
 
-while IFS=$'\t' read -r name id cwd; do
-  [ -n "$name" ] || continue
+# ── Post-start verification (SOFT signal) ─────────────────────────────────
+# The DETERMINISTIC checks are the pre-flight guards in herd_restore_one:
+#   (a) the session file <id>.json must exist to be resumable, and
+#   (b) session_is_active must be false (no live lock).
+# This post-start read is only a soft confirmation — pane content is polluted
+# by TUI chrome, one-off upgrade/interstitial prompts, and (on resume) arbitrary
+# restored conversation text, so it CANNOT be trusted as the sole verdict.
+# It returns 0 (quiet) unless it sees Kiro's explicit no-session string, in
+# which case it warns. It never fails a restore on content-absence alone.
+verify_resumed() {
+  local pane="$1" id="$2" out
+  sleep 2
+  out=$(herdr pane read "$pane" --source recent-unwrapped --lines 80 2>/dev/null || echo "")
+  if printf '%s' "$out" | grep -qiE 'no saved chat sessions|no conversation to resume|could ?n.?t find .* session'; then
+    echo "    ⚠ '$id' — Kiro printed a no-session message; it may have started fresh." >&2
+    return 1
+  fi
+  return 0
+}
+
+# ── Rebuild core (sharable with a future [[startup]] plugin) ──────────────
+
+# Rebuild a single pinned session. Args: name, session-id, cwd.
+# Honors DRY_RUN. Emits progress; returns non-zero on a detected failure.
+herd_restore_one() {
+  local name="$1" id="$2" cwd="$3"
+  local rc=0
 
   echo "→ Restoring '$name'  (session $id)"
   echo "  cwd: $cwd"
 
-  if $DRY_RUN; then
-    echo "  [dry-run] herdr workspace create --cwd $cwd --label $name --no-focus"
-    echo "  [dry-run] herdr agent start $name --kind kiro --pane <pane> -- --resume-id $id"
-    continue
+  # Guard: the session must actually exist to be resumable. A missing
+  # <id>.json means a bogus/deleted id — resuming it silently starts a FRESH
+  # chat (Kiro does not always print a no-session message). This deterministic
+  # check is the reliable catch; pane-content scraping is not.
+  if [ ! -f "$SESSIONS_DIR/$id.json" ]; then
+    echo "  ✗ skip — no session file for $id in $SESSIONS_DIR." >&2
+    echo "    That id would start a FRESH chat, not resume. Re-pin from inside the pane" >&2
+    echo "    with herd-pin-current, or check 'herd-sessions' for the correct id." >&2
+    return 1
   fi
 
-  # Create the workspace, capture the root pane
+  # Guard: is this session already live in another process?
+  if [ "$(session_is_active "$id")" = "alive" ]; then
+    echo "  ⚠ skip — session $id is already active (live kiro-cli holds its lock)."
+    echo "    Resuming it would collide with Kiro's single-process lock."
+    return 0
+  fi
+
+  # Guard: warn (don't fail) if the cwd no longer exists.
+  if [ ! -d "$cwd" ]; then
+    echo "  ⚠ cwd does not exist: $cwd — creating workspace anyway, resume may fail." >&2
+  fi
+
+  if [ "${DRY_RUN:-false}" = "true" ]; then
+    echo "  [dry-run] herdr workspace create --cwd $cwd --label $name --no-focus"
+    echo "  [dry-run] herdr agent start $name --kind kiro --pane <pane> -- chat --resume-id $id"
+    return 0
+  fi
+
+  local created pane_id
   created=$(herdr workspace create --cwd "$cwd" --label "$name" --no-focus)
   pane_id=$(printf '%s' "$created" | jq -r '.result.root_pane.pane_id')
+  if [ -z "$pane_id" ] || [ "$pane_id" = "null" ]; then
+    echo "  ✗ failed to create workspace/pane for '$name'." >&2
+    return 1
+  fi
 
   # Start Kiro in that pane, resuming the exact session by ID.
-  # Args after -- are passed straight to the kiro executable.
-  herdr agent start "$name" --kind kiro --pane "$pane_id" -- --resume-id "$id"
-
-  echo "  ✓ started, resuming session"
+  # NOTE the `chat` subcommand before --resume-id (see header). Args after --
+  # are passed straight to the kiro-cli executable.
+  if herdr agent start "$name" --kind kiro --pane "$pane_id" -- chat --resume-id "$id" >/dev/null 2>&1; then
+    if verify_resumed "$pane_id" "$id"; then
+      echo "  ✓ resumed session $id"
+    else
+      echo "  ⚠ started, but could NOT confirm resume (see reason above)." >&2
+      rc=1
+    fi
+  else
+    echo "  ✗ agent start failed/timed out for '$name' (pane $pane_id)." >&2
+    echo "    Read the pane with: herdr pane read $pane_id --source recent-unwrapped" >&2
+    rc=1
+  fi
   echo ""
-done < "$MANIFEST"
+  return $rc
+}
 
-echo "Done. Run 'herdr' and check the sidebar."
+# Read the manifest and rebuild every pinned session. Returns non-zero if any
+# session failed to confirm resume.
+herd_restore_rebuild_all() {
+  local failures=0 name id cwd
+  while IFS=$'\t' read -r name id cwd; do
+    [ -n "$name" ] || continue
+    herd_restore_one "$name" "$id" "$cwd" || failures=$(( failures + 1 ))
+  done < "$MANIFEST"
+  return $(( failures > 0 ? 1 : 0 ))
+}
+
+# ── Manual-trigger wrapper (thin; the plugin replaces this) ───────────────
+main() {
+  DRY_RUN=false
+  [ "${1:-}" = "--dry-run" ] && DRY_RUN=true
+  export DRY_RUN
+
+  command -v jq >/dev/null || { echo "jq required"; exit 1; }
+
+  if [ ! -s "$MANIFEST" ]; then
+    echo "No pinned sessions in $MANIFEST"
+    echo "Pin some first: herd-pin-current <name>   (exact, from inside the pane)"
+    echo "            or: herd-pin <name> <session-id>"
+    exit 1
+  fi
+
+  # Ensure the Herdr server is reachable (a workspace command spawns it if not).
+  if ! herdr ping >/dev/null 2>&1; then
+    echo "Herdr server not responding; the first workspace command will start it."
+  fi
+
+  if herd_restore_rebuild_all; then
+    echo "Done. Run 'herdr' and check the sidebar."
+  else
+    echo "Done WITH WARNINGS — one or more sessions could not be confirmed as resumed." >&2
+    echo "Re-check the flagged panes above; a fresh-start usually means the session" >&2
+    echo "was already active or its lock is stale. Run 'herdr' to inspect." >&2
+    exit 2
+  fi
+}
+
+# Only run main when executed directly, not when sourced by a plugin.
+# (BASH_SOURCE[0] == $0 means "executed", not "sourced".)
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  main "$@"
+fi
