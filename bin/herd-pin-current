@@ -21,7 +21,9 @@ if [ -z "${KIRO_SESSION_ID:-}" ]; then
 fi
 
 id="$KIRO_SESSION_ID"
-cwd="$(pwd)"
+# Physical cwd (resolve symlinks) so the pinned path byte-matches how Kiro
+# keyed the session; herd-pin canonicalises again as a safety net.
+cwd="$(pwd -P)"
 
 # Name: use the argument, or derive a slug from the directory basename
 if [ $# -ge 1 ]; then

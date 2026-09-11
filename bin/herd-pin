@@ -65,6 +65,24 @@ if [ -z "$cwd" ]; then
   fi
 fi
 
+# Canonicalise cwd (resolve symlinks) so herd-restore's --cwd byte-matches the
+# path Kiro used to key the session. Kiro stores an already-resolved cwd in its
+# session file, but a cwd passed in from `pwd` (e.g. via herd-pin-current) or a
+# repo reached through a symlinked parent can differ by a symlink segment —
+# which would make restore land in a subtly different dir and miss the session.
+# Portable resolver: `cd -P` follows physical dirs without GNU realpath flags
+# (BSD/macOS realpath lacks the GNU options). Only rewrite if the dir exists;
+# otherwise keep the literal value so a stale-but-informative pin still records.
+if [ -d "$cwd" ]; then
+  canonical=$(cd -P "$cwd" 2>/dev/null && pwd -P) || canonical=""
+  if [ -n "$canonical" ]; then
+    if [ "$canonical" != "$cwd" ]; then
+      echo "  (canonicalised cwd: $cwd → $canonical)"
+    fi
+    cwd="$canonical"
+  fi
+fi
+
 # Remove any existing pin with the same name, then append.
 # Use awk (portable) to drop the matching row — NOT grep -P, which BSD/macOS
 # grep does not support and which would silently empty the manifest.
