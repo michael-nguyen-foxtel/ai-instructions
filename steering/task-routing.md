@@ -56,6 +56,37 @@ The agent's job ends at "ready to merge." It can:
 
 It CANNOT run `gh pr merge`, `gh stack merge`, click merge, or approve-and-merge in any form. No exceptions.
 
+## Skill vs Subagent vs Sibling — the Three-Gate Rule
+
+**Root variable: who owns the context window.** A **skill** runs inline in the
+*current* agent's context (shared window, tools, history; zero handoff cost; human
+sees every step). A **subagent** or **sibling** is a *separate* context window with a
+curated toolset — isolation is the point, at a real price (3–10× tokens + handoff
+loss). Because our workflow keeps the human as reviewer through grilling/spec, it is
+**skill-first by default**; isolation earns its place only where staying in-loop is
+wasteful or impossible.
+
+Choose the lowest gate that fits:
+
+- **Gate 0 — script/tool.** Deterministic, no per-run judgement. Not one of the three.
+- **Gate 1 (default) — SKILL.** Reusable *process* reasoning against the live,
+  evolving conversation. Cheapest, observable, composable, human-in-loop.
+- **Gate 2 — in-process SUBAGENT** (the `subagent` tool roles). Only when context can
+  be *truly isolated* AND at least one holds: verbose disposable output; a hard
+  tool/permission boundary is needed; parallelisable within the session and only the
+  summary is wanted. Never for sequential phases or shared-state work.
+- **Gate 3 — HERDR SIBLING SESSION.** Independent, substantial, long-running, or a
+  different repo/dir; human-supervised via the sidebar, not a returned summary. See
+  the four fan-out criteria in `herdr-orchestration.md`.
+
+**Single test at every boundary: can the context be *truly isolated*?** No → drop a
+gate. The tiers are **composable** — a subagent typically *runs* skills; "agent" is
+usually "isolated context + fixed tools that runs skills."
+
+The **phase-boundary** delegate/handoff/inline decision (`context-management.md`) and
+subagent tool-scoping (below) both apply this rule; this section is its single source
+of truth.
+
 ## Subagent Tool Scoping (Hard Rule)
 
 **A subagent's MCP tool scope must match its declared job.** A read-only subagent
