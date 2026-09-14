@@ -146,6 +146,7 @@ Reviews the diff against team conventions and the originating spec. Creates a PR
 | `/build-verify` | Post-change lint + test loop |
 | `/writing-for-agents` | Reference for writing skills and agent docs |
 | `/cicd-conventions` | CI/CD + infra conventions (GitHub Actions, AWS, observability) |
+| `/wizard` | Generate a guided, resumable operator walkthrough for human-only steps |
 
 > **Main Flow skills** (`/grill-with-docs`, `/grilling`, `/to-spec`, `/to-tickets`,
 > `/implement-from-spec`, `/code-review`, `/pull-requests`, `/stacked-prs`,
