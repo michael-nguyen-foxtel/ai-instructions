@@ -6,7 +6,12 @@ description: Use when creating pull requests, writing PR titles/descriptions, or
 
 ## Creating PRs
 
-Always create PRs via shell using `gh`:
+Always create PRs via shell using `gh`. **Write the body to a file and pass
+`--body-file`** — never pass a multi-line body inline via `--body "$(...)"`. An
+inline body containing backticks (code spans or fenced blocks) is executed by the
+shell as command substitution, silently corrupting the PR description. There is no
+MCP tool to create or edit a PR body, but `gh pr edit --body-file <file>` repairs
+one after the fact.
 
 ```bash
 gh pr create \
@@ -14,8 +19,7 @@ gh pr create \
   --title "type(scope): TICKET | description" \
   --assignee @me \
   --label "<relevant-labels>" \
-  --body "## Summary
-..."
+  --body-file /tmp/pr-body.md
 ```
 
 ### Labels
