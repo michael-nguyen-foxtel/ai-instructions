@@ -64,19 +64,22 @@ CORE="$(find_core)" || {
 
 log "event=${HERDR_PLUGIN_EVENT:-?} manifest=$MANIFEST core=$CORE dry_run=$DRY_RUN"
 
-# ── Source the core and drive its dry-run rebuild ─────────────────────────
+# ── Source the core and drive its dry-run reconcile ───────────────────────
 # herd-restore guards `main` behind BASH_SOURCE==$0, so sourcing exposes
-# herd_restore_one / herd_restore_rebuild_all WITHOUT running the manual
-# wrapper. The core reads $MANIFEST and honours $DRY_RUN + $SESSIONS_DIR.
+# reconcile_bare_shells / herd_restore_one WITHOUT running the manual wrapper.
+# The core reads $MANIFEST and honours $DRY_RUN + $SESSIONS_DIR.
 export HERD_RESTORE_MANIFEST="$MANIFEST"   # keep the core's own default in sync
 export DRY_RUN
 # shellcheck source=/dev/null
 source "$CORE"
 # After sourcing, the core's own MANIFEST is seeded from HERD_RESTORE_MANIFEST
-# (exported above), so herd_restore_rebuild_all reads the state-dir manifest.
+# (exported above), so reconcile_bare_shells reads the state-dir manifest.
 
-if herd_restore_rebuild_all; then
-  log "dry-run rebuild complete — all pinned sessions accounted for."
+# WS-4 redesign: reconcile against SETTLED pane state (wait for Herdr's replay
+# to finish, then fill only bare-shell panes by resuming INTO them) rather than
+# racing the replay with a fixed sleep. See the core's reconcile_bare_shells.
+if reconcile_bare_shells; then
+  log "dry-run reconcile complete — all pinned sessions accounted for."
 else
-  log "dry-run rebuild reported issues above (missing session file, etc.)."
+  log "dry-run reconcile reported issues above (missing session file, ambiguous cwd, etc.)."
 fi
