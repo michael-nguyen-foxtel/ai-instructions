@@ -201,39 +201,59 @@ panes_snapshot() {
   ' 2>/dev/null | sort
 }
 
-# Poll panes_snapshot until it is byte-identical for N consecutive reads
-# (state has SETTLED) or a hard ceiling elapses, then echo the settled snapshot
-# on stdout. This observes the thing we care about — pane ids + agent
-# assignment stabilising — rather than guessing Herdr's replay latency.
+# True (0) if EVERY resumable pin in the manifest is ACCOUNTED-FOR in the given
+# snapshot ($1): there is a pane (live Kiro OR bare shell) at the pin's cwd. A
+# pin whose session file is missing is not resumable, so it does not hold up the
+# wait (it will be skipped by reconcile). This is the settle signal that matters
+# — "Herdr has brought back a pane for everything I need to restore" — rather
+# than "pane state stopped changing", which looks true in the GAPS of a slow,
+# staggered replay (restart #2: this pane replayed ~27s after the hook, long
+# after a 3-read stability window would have fired).
+all_pins_accounted_for() {
+  local snapshot="$1" name id cwd
+  while IFS=$'\t' read -r name id cwd; do
+    [ -n "$name" ] || continue
+    # Not resumable → does not block the wait.
+    [ -f "$SESSIONS_DIR/$id.json" ] || continue
+    # Accounted-for iff some pane (any agent, incl. bare shell) sits at this cwd.
+    if ! printf '%s\n' "$snapshot" | awk -F'\t' -v c="$cwd" '$3==c{f=1} END{exit !f}'; then
+      return 1
+    fi
+  done < "$MANIFEST"
+  return 0
+}
+
+# Poll panes_snapshot until every resumable pin is ACCOUNTED-FOR (a pane exists
+# at its cwd), OR a hard ceiling elapses. Echoes the final snapshot.
+#
+# We deliberately do NOT stop on "pane state went quiet": during a slow,
+# staggered replay the snapshot looks stable in the GAPS between pane arrivals,
+# and stopping there stranded a pin whose pane had not replayed yet (restart #2:
+# this pane replayed ~27s after the hook). Accounted-for is the goal state; the
+# only other exit is the ceiling, after which any still-missing pin falls
+# through to the fresh-workspace path. A manifest pin Herdr will never restore
+# therefore costs one ceiling wait — acceptable and rare, and the safe default.
+#
 # Tunable via env:
-#   HERD_RESTORE_SETTLE_STABLE_READS (default 3)  identical reads to call it settled
-#   HERD_RESTORE_SETTLE_POLL_SEC     (default 1)   seconds between reads
-#   HERD_RESTORE_SETTLE_CEILING_SEC  (default 60)  hard cap on total wait
+#   HERD_RESTORE_SETTLE_POLL_SEC    (default 1)   seconds between reads
+#   HERD_RESTORE_SETTLE_CEILING_SEC (default 60)  hard cap on total wait
 wait_for_pane_settle() {
-  local need="${HERD_RESTORE_SETTLE_STABLE_READS:-3}"
   local poll="${HERD_RESTORE_SETTLE_POLL_SEC:-1}"
   local ceiling="${HERD_RESTORE_SETTLE_CEILING_SEC:-60}"
-  local prev="" cur stable=0 waited=0
-  # Use a float-free integer budget: number of polls before the ceiling.
-  # (poll may be sub-second in tests; guard against div-by-zero.)
+  local cur waited=0
   cur="$(panes_snapshot)"
   while :; do
-    prev="$cur"
-    if [ "$stable" -ge "$need" ]; then
+    # Primary (and only early) stop: everything we need has a pane.
+    if all_pins_accounted_for "$cur"; then
       break
     fi
-    # Ceiling check in whole seconds; tests override poll/ceiling to run fast.
+    # Hard ceiling: give up waiting; unaccounted pins take the fallback path.
     if awk "BEGIN{exit !($waited >= $ceiling)}"; then
       break
     fi
     sleep "$poll"
     waited="$(awk "BEGIN{print $waited + $poll}")"
     cur="$(panes_snapshot)"
-    if [ "$cur" = "$prev" ]; then
-      stable=$(( stable + 1 ))
-    else
-      stable=1
-    fi
   done
   printf '%s\n' "$cur"
 }
@@ -282,11 +302,41 @@ resume_into_pane() {
   return 1
 }
 
+# Among all pins that share a cwd, decide whether pin $1(id) is the OWNER of
+# that cwd $2. Used to break the shared-cwd ambiguity (restart #2: a dead
+# `hq-ws4` pin and the live `hq-ws4-racefix` both sat at ai-instructions, and
+# blanket "leave both" stranded the REAL session). Ownership rule, in order:
+#   1. If exactly one pin at the cwd is LIVE (own $KIRO_SESSION_ID, live lock),
+#      that pin owns it; every other pin at the cwd is SUPERSEDED.
+#   2. Else the pin with the newest session-file mtime owns it (most recently
+#      active wins); ties fall to the first in manifest order.
+# Echoes the owning session id for cwd $2 (empty if no resumable pin there).
+owner_id_for_cwd() {
+  local want_cwd="$1" name id cwd best_id="" best_mtime=-1 live_id="" live_count=0 m
+  while IFS=$'\t' read -r name id cwd; do
+    [ -n "$name" ] || continue
+    [ "$cwd" = "$want_cwd" ] || continue
+    [ -f "$SESSIONS_DIR/$id.json" ] || continue
+    # Liveness: own session, or a held lock.
+    if [ "$id" = "${KIRO_SESSION_ID:-}" ] || [ "$(session_is_active "$id")" = "alive" ]; then
+      live_id="$id"; live_count=$(( live_count + 1 ))
+    fi
+    m="$(stat -f '%m' "$SESSIONS_DIR/$id.json" 2>/dev/null || stat -c '%Y' "$SESSIONS_DIR/$id.json" 2>/dev/null || echo 0)"
+    if [ "$m" -gt "$best_mtime" ]; then best_mtime="$m"; best_id="$id"; fi
+  done < "$MANIFEST"
+  # Exactly one live pin → it owns. Otherwise newest mtime owns.
+  if [ "$live_count" = "1" ]; then
+    printf '%s\n' "$live_id"
+  else
+    printf '%s\n' "$best_id"
+  fi
+}
+
 # Reconcile pinned sessions against SETTLED pane state. For each pin:
 #   • live Kiro pane already at its cwd            → skip (idempotent)
+#   • NOT the owner of a shared cwd (superseded)   → skip (stale duplicate)
 #   • exactly one bare-shell pane at its cwd       → resume INTO that pane
 #   • no pane at its cwd at all                    → fresh workspace (fallback)
-#   • ambiguous (≥2 pins or ≥2 bare shells / cwd)  → leave + warn
 # This is the entry the [[startup]] hook and the manual wrapper both call.
 # Returns non-zero if any pin failed to reconcile.
 reconcile_bare_shells() {
@@ -294,11 +344,9 @@ reconcile_bare_shells() {
   echo "⧗ Waiting for Herdr pane state to settle before reconciling…"
   snapshot="$(wait_for_pane_settle)"
 
-  # Pre-count pins per cwd so we can detect the "≥2 pins share a cwd" ambiguity
-  # (Q3): if two pinned sessions map to the same cwd, we cannot safely decide
-  # which bare shell is which, so we leave them for manual resume.
-  local ambiguous_cwds
-  ambiguous_cwds="$(awk -F'\t' '{print $3}' "$MANIFEST" | sort | uniq -d)"
+  # Which cwds are shared by ≥2 pins? Only those need ownership resolution.
+  local shared_cwds
+  shared_cwds="$(awk -F'\t' '{print $3}' "$MANIFEST" | sort | uniq -d)"
 
   while IFS=$'\t' read -r name id cwd; do
     [ -n "$name" ] || continue
@@ -310,17 +358,20 @@ reconcile_bare_shells() {
       failures=$(( failures + 1 )); continue
     fi
 
-    if [ -n "$(live_kiro_pane_for_cwd "$snapshot" "$cwd")" ]; then
-      # A live Kiro pane exists at this cwd. If MORE than one pin shares the
-      # cwd we cannot attribute it, but a live pane means at least one is
-      # served; skip conservatively (idempotent re-runs land here too).
-      echo "  ⏭ skip — a live Kiro pane already serves $cwd (Herdr restored it)."
-      continue
+    # Shared-cwd resolution (fix a): if ≥2 pins share this cwd, only the OWNER
+    # (live pin, else newest) is reconciled; the rest are superseded duplicates
+    # and skipped. This stops a stale pin from stranding the real session.
+    if printf '%s\n' "$shared_cwds" | grep -qxF "$cwd"; then
+      local owner
+      owner="$(owner_id_for_cwd "$cwd")"
+      if [ "$id" != "$owner" ]; then
+        echo "  ⏭ skip — superseded: another pin owns $cwd (owner session $owner)."
+        continue
+      fi
     fi
 
-    if printf '%s\n' "$ambiguous_cwds" | grep -qxF "$cwd"; then
-      echo "  ⚠ leave — ${cwd} has ≥2 pinned sessions; cannot safely pick a pane." >&2
-      echo "    Resume manually: herd-restore picks 1:1 only. Candidates share this cwd." >&2
+    if [ -n "$(live_kiro_pane_for_cwd "$snapshot" "$cwd")" ]; then
+      echo "  ⏭ skip — a live Kiro pane already serves $cwd (Herdr restored it)."
       continue
     fi
 
