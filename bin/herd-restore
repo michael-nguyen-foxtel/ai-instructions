@@ -175,6 +175,169 @@ session_settles_live() {
   return 1
 }
 
+# ══════════════════════════════════════════════════════════════════════════
+# Resume-into-bare-shells reconciliation (WS-4 redesign)
+# Spec: .kiro/specs/ws4-resume-into-bare-shells-SPEC.md
+#
+# Real-restart evidence (2026-09-15) disproved the timing-based guard above for
+# the [[startup]] hook path: the hook fires ~11s BEFORE Herdr's snapshot replay
+# brings a pinned Kiro pane back, so racing an async event with a fixed sleep is
+# unsafe. This path instead REACTS to final pane state: wait until pane state
+# SETTLES, then fill ONLY panes Herdr restored as bare shells (no Kiro agent),
+# resuming the pinned session INTO the existing pane rather than creating a
+# duplicate workspace. Detection uses the structured `herdr pane list` `agent`
+# field (agent=="kiro" ⇒ live; absent ⇒ bare shell) — race-free once queried.
+# ══════════════════════════════════════════════════════════════════════════
+
+# Emit a normalised, comparable snapshot of all panes: one line per pane,
+# TAB-separated `pane_id<TAB>agent<TAB>cwd`, sorted for stable comparison.
+# `agent` is "kiro" for a live Kiro pane or "" (empty) for a bare shell. This
+# is the single source of truth for both settle-detection and bare-shell
+# matching, so both observe identical data.
+panes_snapshot() {
+  herdr pane list 2>/dev/null | jq -r '
+    .result.panes[]
+    | [.pane_id, (.agent // ""), .cwd] | @tsv
+  ' 2>/dev/null | sort
+}
+
+# Poll panes_snapshot until it is byte-identical for N consecutive reads
+# (state has SETTLED) or a hard ceiling elapses, then echo the settled snapshot
+# on stdout. This observes the thing we care about — pane ids + agent
+# assignment stabilising — rather than guessing Herdr's replay latency.
+# Tunable via env:
+#   HERD_RESTORE_SETTLE_STABLE_READS (default 3)  identical reads to call it settled
+#   HERD_RESTORE_SETTLE_POLL_SEC     (default 1)   seconds between reads
+#   HERD_RESTORE_SETTLE_CEILING_SEC  (default 60)  hard cap on total wait
+wait_for_pane_settle() {
+  local need="${HERD_RESTORE_SETTLE_STABLE_READS:-3}"
+  local poll="${HERD_RESTORE_SETTLE_POLL_SEC:-1}"
+  local ceiling="${HERD_RESTORE_SETTLE_CEILING_SEC:-60}"
+  local prev="" cur stable=0 waited=0
+  # Use a float-free integer budget: number of polls before the ceiling.
+  # (poll may be sub-second in tests; guard against div-by-zero.)
+  cur="$(panes_snapshot)"
+  while :; do
+    prev="$cur"
+    if [ "$stable" -ge "$need" ]; then
+      break
+    fi
+    # Ceiling check in whole seconds; tests override poll/ceiling to run fast.
+    if awk "BEGIN{exit !($waited >= $ceiling)}"; then
+      break
+    fi
+    sleep "$poll"
+    waited="$(awk "BEGIN{print $waited + $poll}")"
+    cur="$(panes_snapshot)"
+    if [ "$cur" = "$prev" ]; then
+      stable=$(( stable + 1 ))
+    else
+      stable=1
+    fi
+  done
+  printf '%s\n' "$cur"
+}
+
+# Given a settled snapshot ($1, multiline pane_id<TAB>agent<TAB>cwd) and a cwd
+# ($2), echo the pane_id IFF exactly one BARE-SHELL pane (agent field empty)
+# matches that cwd. Echo "" for zero matches or genuine ambiguity (≥2). We do
+# NOT guess on ambiguity — filling the wrong session into a pane is worse than
+# leaving a bare shell for the human.
+bare_shell_pane_for_cwd() {
+  local snapshot="$1" want_cwd="$2" matches
+  matches="$(printf '%s\n' "$snapshot" | awk -F'\t' -v c="$want_cwd" '
+    $2 == "" && $3 == c { print $1 }
+  ')"
+  # Count matches; only a unique hit is actionable.
+  if [ "$(printf '%s\n' "$matches" | grep -c .)" = "1" ]; then
+    printf '%s\n' "$matches"
+  else
+    printf '\n'
+  fi
+}
+
+# Echo "kiro" if the settled snapshot has a LIVE Kiro pane at $2 (cwd), else "".
+# Used to skip pins Herdr already brought back fully.
+live_kiro_pane_for_cwd() {
+  local snapshot="$1" want_cwd="$2"
+  printf '%s\n' "$snapshot" | awk -F'\t' -v c="$want_cwd" '
+    $2 == "kiro" && $3 == c { print "kiro"; exit }
+  '
+}
+
+# Resume a pinned session INTO an existing bare-shell pane (validated mechanic:
+# herdr agent start --pane <existing> resumes in place, no new workspace).
+# Args: name, session-id, pane-id. Honors DRY_RUN. Returns non-zero on failure.
+resume_into_pane() {
+  local name="$1" id="$2" pane_id="$3"
+  if [ "${DRY_RUN:-false}" = "true" ]; then
+    echo "  [dry-run] herdr agent start $name --kind kiro --pane $pane_id -- chat --resume-id $id"
+    return 0
+  fi
+  if herdr agent start "$name" --kind kiro --pane "$pane_id" -- chat --resume-id "$id" >/dev/null 2>&1; then
+    echo "  ✓ resumed session $id INTO existing pane $pane_id (no duplicate workspace)"
+    return 0
+  fi
+  echo "  ✗ failed to resume '$name' into pane $pane_id." >&2
+  return 1
+}
+
+# Reconcile pinned sessions against SETTLED pane state. For each pin:
+#   • live Kiro pane already at its cwd            → skip (idempotent)
+#   • exactly one bare-shell pane at its cwd       → resume INTO that pane
+#   • no pane at its cwd at all                    → fresh workspace (fallback)
+#   • ambiguous (≥2 pins or ≥2 bare shells / cwd)  → leave + warn
+# This is the entry the [[startup]] hook and the manual wrapper both call.
+# Returns non-zero if any pin failed to reconcile.
+reconcile_bare_shells() {
+  local failures=0 name id cwd snapshot pane
+  echo "⧗ Waiting for Herdr pane state to settle before reconciling…"
+  snapshot="$(wait_for_pane_settle)"
+
+  # Pre-count pins per cwd so we can detect the "≥2 pins share a cwd" ambiguity
+  # (Q3): if two pinned sessions map to the same cwd, we cannot safely decide
+  # which bare shell is which, so we leave them for manual resume.
+  local ambiguous_cwds
+  ambiguous_cwds="$(awk -F'\t' '{print $3}' "$MANIFEST" | sort | uniq -d)"
+
+  while IFS=$'\t' read -r name id cwd; do
+    [ -n "$name" ] || continue
+    echo "→ Reconciling '$name'  (session $id)"
+    echo "  cwd: $cwd"
+
+    if [ ! -f "$SESSIONS_DIR/$id.json" ]; then
+      echo "  ✗ skip — no session file for $id; would start FRESH, not resume." >&2
+      failures=$(( failures + 1 )); continue
+    fi
+
+    if [ -n "$(live_kiro_pane_for_cwd "$snapshot" "$cwd")" ]; then
+      # A live Kiro pane exists at this cwd. If MORE than one pin shares the
+      # cwd we cannot attribute it, but a live pane means at least one is
+      # served; skip conservatively (idempotent re-runs land here too).
+      echo "  ⏭ skip — a live Kiro pane already serves $cwd (Herdr restored it)."
+      continue
+    fi
+
+    if printf '%s\n' "$ambiguous_cwds" | grep -qxF "$cwd"; then
+      echo "  ⚠ leave — ${cwd} has ≥2 pinned sessions; cannot safely pick a pane." >&2
+      echo "    Resume manually: herd-restore picks 1:1 only. Candidates share this cwd." >&2
+      continue
+    fi
+
+    pane="$(bare_shell_pane_for_cwd "$snapshot" "$cwd")"
+    pane="$(printf '%s' "$pane" | tr -d '[:space:]')"
+    if [ -n "$pane" ]; then
+      resume_into_pane "$name" "$id" "$pane" || failures=$(( failures + 1 ))
+    else
+      # No bare-shell pane at this cwd (and no live one). Herdr restored no pane
+      # here — fall back to creating a fresh workspace (existing behaviour).
+      echo "  · no restored pane at $cwd — creating a fresh workspace."
+      herd_restore_one "$name" "$id" "$cwd" || failures=$(( failures + 1 ))
+    fi
+  done < "$MANIFEST"
+  return $(( failures > 0 ? 1 : 0 ))
+}
+
 # ── Post-start verification (SOFT signal) ─────────────────────────────────
 # The DETERMINISTIC checks are the pre-flight guards in herd_restore_one:
 #   (a) the session file <id>.json must exist to be resumable, and
@@ -310,12 +473,12 @@ main() {
     echo "Herdr server not responding; the first workspace command will start it."
   fi
 
-  if herd_restore_rebuild_all; then
+  if reconcile_bare_shells; then
     echo "Done. Run 'herdr' and check the sidebar."
   else
-    echo "Done WITH WARNINGS — one or more sessions could not be confirmed as resumed." >&2
-    echo "Re-check the flagged panes above; a fresh-start usually means the session" >&2
-    echo "was already active or its lock is stale. Run 'herdr' to inspect." >&2
+    echo "Done WITH WARNINGS — one or more pins could not be reconciled (missing" >&2
+    echo "session file, or an ambiguous cwd shared by ≥2 pins). Re-check the flagged" >&2
+    echo "lines above and resume those manually. Run 'herdr' to inspect." >&2
     exit 2
   fi
 }
