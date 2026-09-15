@@ -24,15 +24,24 @@ herdr worktree remove --workspace <workspace_id> --force
 # Start kiro-cli in a pane
 herdr agent start "<name>" --kind kiro --pane <pane_id>
 
-# Send initial prompt (the automated handoff)
-herdr agent prompt "<name>" "<prompt text>"
-
-# Wait for agent to finish or need input
-herdr agent wait "<name>" --until idle --until blocked
+# Send the initial prompt AND wait for it to settle, in one call (the automated
+# handoff). --wait blocks until the agent reaches a terminal-ish state; repeat
+# --until to widen what counts as settled.
+herdr agent prompt "<name>" "<prompt text>" --wait --until idle --until blocked --timeout 120000
 
 # Check what an agent is showing
 herdr agent read "<name>" --source visible
 ```
+
+Prefer `agent prompt --wait` over a separate `agent prompt` then `agent wait` — one
+call, no race between submit and observe. Race semantics to code against: after
+submission from a non-working state Herdr waits up to **5s** to observe
+`working`/`blocked` or returns **`agent_prompt_stalled`**; if your `--timeout`
+expires first you get **`timeout`**; an already-`blocked` agent returns
+**`agent_blocked`** without sending input. A `timeout`/`agent_prompt_stalled` does
+**not** prove the prompt was undelivered — `agent read` before retrying. Standalone
+`agent wait "<name>" --until idle --until blocked` still exists for when you did not
+send the prompt yourself.
 
 ### Pane operations
 
@@ -56,6 +65,24 @@ Agent states visible in Herdr menu:
 - `done` — finished (tab not yet seen)
 - `unknown` — agent present but state unclear
 
+### Notifications & sidebar status
+
+```bash
+# One-shot toast when a long op finishes (deploy, long subagent, big build)
+herdr notification show "Deploy finished" --body "fiso staging is live" --sound done
+
+# Patch a pane's sidebar row with richer status (display-only; tokens show as $name)
+herdr pane report-metadata <pane_id> --source mytool --state-label working="building…"
+```
+
+- **Toast on long-op completion.** When a long-running operation finishes — a deploy,
+  a big build, a slow subagent — fire `herdr notification show` so the human isn't
+  babysitting the pane. Use `--sound done` for completion, `--sound request` when the
+  op needs their attention. It is one-shot and caller-driven, not a watcher.
+- **Richer sidebar labels (light, encouraged).** `herdr pane report-metadata` patches
+  display-only tokens/state-labels onto a pane's Agent-sidebar row (surface as `$name`)
+  — use it to show a meaningful status without owning any semantic state.
+
 ## Orchestration Pattern
 
 When the orchestrator creates parallel tickets:
@@ -65,7 +92,7 @@ When the orchestrator creates parallel tickets:
 3. `herdr pane wait-output` to confirm install finished
 4. Write scoped spec into the worktree
 5. `herdr agent start` to activate kiro-cli in the pane
-6. `herdr agent prompt` to send the implement command
+6. `herdr agent prompt … --wait --until idle --until blocked` to send the implement command and block until it settles
 
 No scripts, no copy-paste, no handoff docs for parallel implementation. The orchestrator does it all via Herdr's CLI.
 

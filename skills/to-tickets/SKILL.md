@@ -131,9 +131,15 @@ herdr pane wait-output <pane_id> --match "Done" --timeout 120000
 # Activate kiro-cli as a managed agent
 herdr agent start "<agent-name>" --kind kiro --pane <pane_id>
 
-# Send the initial prompt — this is the automated handoff
+# Send the initial prompt — this is the automated handoff.
+# --wait confirms the prompt actually landed (guards the ~5s agent_prompt_stalled
+# race); --until working|blocked returns as soon as the agent starts or needs input.
+# Do NOT wait --until idle here — that would block until this agent FINISHES and
+# serialise the parallel wave. We want each launch to return fast so the next
+# worktree can start.
 herdr agent prompt "<agent-name>" \
-  "Implement the spec at .kiro/specs/<TICKET>-SPEC.md. Run /implement-from-spec .kiro/specs/<TICKET>-SPEC.md"
+  "Implement the spec at .kiro/specs/<TICKET>-SPEC.md. Run /implement-from-spec .kiro/specs/<TICKET>-SPEC.md" \
+  --wait --until working --until blocked --timeout 60000
 ```
 
 Each agent appears in the Herdr menu with live status (`working`, `blocked`, `idle`, `done`). The user flips between them to approve tool calls when agents show `blocked`.
@@ -173,7 +179,8 @@ herdr agent prompt "<wave-name>" \
    2. <TICKET-B>: .kiro/specs/<TICKET-B>-SPEC.md
    3. <TICKET-C>: .kiro/specs/<TICKET-C>-SPEC.md
    After each ticket: commit, then create the next branch on top with git checkout -b <next-branch>.
-   When all done: gh stack submit --auto to create draft PRs for the stack."
+   When all done: gh stack submit --auto to create draft PRs for the stack." \
+  --wait --until working --until blocked --timeout 60000
 ```
 
 The agent implements each slice in order, stacking branches. At the end it submits the full stack as draft PRs. You review bottom-up, merge bottom-up with `gh stack sync --prune` between each.
