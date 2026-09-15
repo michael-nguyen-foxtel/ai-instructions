@@ -10,13 +10,36 @@
 #   herd-pin --list            show pinned sessions
 #   herd-pin --remove <name>   unpin
 #
-# Manifest: ~/.config/herd/restore.tsv  (name<TAB>session_id<TAB>cwd)
+# Manifest: the herd.restore plugin state dir (name<TAB>session_id<TAB>cwd)
+#   ${XDG_STATE_HOME:-~/.local/state}/herdr/plugins/herd.restore/restore.tsv
+# so the Herdr [[startup]] restore hook and these pin scripts share one file.
+# Override with HERD_RESTORE_MANIFEST. The old ~/.config/herd/restore.tsv is
+# migrated once on first write.
 
 set -euo pipefail
 
-MANIFEST="$HOME/.config/herd/restore.tsv"
+# ── Manifest location (T13/WS-4) ──────────────────────────────────────────
+# Writer side of the resolver in herd-restore. Same precedence: explicit
+# override → plugin state dir. On first use, migrate the legacy manifest so
+# existing pins are not stranded.
+if [ -n "${HERD_RESTORE_MANIFEST:-}" ]; then
+  MANIFEST="$HERD_RESTORE_MANIFEST"
+else
+  _base="${XDG_STATE_HOME:-$HOME/.local/state}"
+  MANIFEST="$_base/herdr/plugins/herd.restore/restore.tsv"
+fi
 SESSIONS_DIR="$HOME/.kiro/sessions/cli"
 mkdir -p "$(dirname "$MANIFEST")"
+
+# One-time migration: if the new manifest doesn't exist yet but the legacy one
+# does, move its contents across so no pins are lost. Copy (don't delete the
+# legacy) so a rollback to an older herd-restore still finds its pins.
+_legacy="$HOME/.config/herd/restore.tsv"
+if [ ! -e "$MANIFEST" ] && [ -s "$_legacy" ]; then
+  cp "$_legacy" "$MANIFEST"
+  echo "Migrated pins: $_legacy → $MANIFEST" >&2
+fi
+
 touch "$MANIFEST"
 
 case "${1:-}" in

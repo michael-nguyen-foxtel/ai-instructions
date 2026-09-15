@@ -1,0 +1,21 @@
+id = "herd.restore"
+name = "Herd Restore"
+version = "0.1.0"
+# 0.9.0: startup-hook env contract (HERDR_PLUGIN_STATE_DIR, HERDR_PLUGIN_EVENT)
+# verified on this machine. Startup hooks + plugin state dir predate this, but we
+# pin to the version we actually validated against rather than guess the floor.
+min_herdr_version = "0.9.0"
+description = "Auto-rebuild pinned Kiro sessions after a Herdr restart or live handoff."
+platforms = ["macos", "linux"]
+
+# One-shot startup hook. Runs once after Herdr restores the session and its API
+# socket is ready, and again when a new server takes over on live handoff — NOT
+# on plugin link/enable, config reload, or client attach. It reads the pin
+# manifest from HERDR_PLUGIN_STATE_DIR and rebuilds each pinned session.
+#
+# SAFE-STEP MODE (WS-4 step 1): the hook currently DRY-RUN echoes the commands it
+# would run. It does not create workspaces or start agents yet. Wiring it to the
+# real herd_restore_rebuild_all core is deferred to WS-4 step 3, after a restart
+# has confirmed the hook fires and reads the manifest.
+[[startup]]
+command = ["bash", "restore-startup.sh"]
