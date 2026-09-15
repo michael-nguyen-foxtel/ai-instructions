@@ -78,6 +78,45 @@ session_is_active() {
   fi
 }
 
+# ── Reconciliation guard (T13/WS-4 follow-up) ─────────────────────────────
+# After a Herdr server restart, Herdr's SNAPSHOT RESTORE re-runs each pane's
+# saved command line verbatim. A pane that was launched with
+# `… -- chat --resume-id <id>` is therefore brought back ALREADY RESUMING that
+# session — WITHOUT any Herdr "integration" (Kiro's integration role is `none`;
+# see .kiro/research/2026-09-15-herdr-native-restore-vs-herd-restore.md). If
+# herd-restore then rebuilds the same pinned id, you get DUPLICATE workspaces
+# (observed 2026-09-15). The lock check (session_is_active) catches this once
+# Kiro has written its <id>.lock, but Kiro writes that lock a beat AFTER launch,
+# so a restore that runs inside that window races past it. This argv scan is the
+# EARLIER, race-free signal: a live kiro-cli process whose command line already
+# names the pinned id means Herdr's snapshot replay already brought it back.
+#
+# NOTE we match the bare UUID anywhere in argv, NOT an anchored `--resume-id`:
+# a resumed pane's own process/wrapper can carry the id without the flag (its
+# TUI also rewrites its terminal_title away from the launch command), so the
+# `--resume-id`-anchored form misses drifted panes. The lock check is the
+# authoritative fallback for panes whose argv shows no id at all.
+_UUID_RE='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+
+# Echo every session id currently named in a live kiro-cli process's argv,
+# one per line, de-duplicated. Empty if none. Scanned once per restore run.
+live_session_ids_from_argv() {
+  ps -Ao pid,command 2>/dev/null \
+    | grep -i '[k]iro-cli' \
+    | grep -oE "$_UUID_RE" \
+    | sort -u
+}
+
+# True (0) if $1 is a session already live under Herdr — either its id appears
+# in the pre-scanned argv set ($2, newline-delimited) OR it holds a live lock.
+session_already_live() {
+  local id="$1" argv_ids="${2:-}"
+  if [ -n "$argv_ids" ] && printf '%s\n' "$argv_ids" | grep -qxF "$id"; then
+    return 0
+  fi
+  [ "$(session_is_active "$id")" = "alive" ]
+}
+
 # ── Post-start verification (SOFT signal) ─────────────────────────────────
 # The DETERMINISTIC checks are the pre-flight guards in herd_restore_one:
 #   (a) the session file <id>.json must exist to be resumable, and
@@ -100,10 +139,10 @@ verify_resumed() {
 
 # ── Rebuild core (sharable with a future [[startup]] plugin) ──────────────
 
-# Rebuild a single pinned session. Args: name, session-id, cwd.
+# Rebuild a single pinned session. Args: name, session-id, cwd, [live-argv-ids].
 # Honors DRY_RUN. Emits progress; returns non-zero on a detected failure.
 herd_restore_one() {
-  local name="$1" id="$2" cwd="$3"
+  local name="$1" id="$2" cwd="$3" argv_ids="${4:-}"
   local rc=0
 
   echo "→ Restoring '$name'  (session $id)"
@@ -120,10 +159,13 @@ herd_restore_one() {
     return 1
   fi
 
-  # Guard: is this session already live in another process?
-  if [ "$(session_is_active "$id")" = "alive" ]; then
-    echo "  ⚠ skip — session $id is already active (live kiro-cli holds its lock)."
-    echo "    Resuming it would collide with Kiro's single-process lock."
+  # Reconciliation guard: is this session ALREADY live under Herdr? After a
+  # server restart Herdr's snapshot replay may have already brought the pane
+  # back resuming this id (argv signal, race-free) — or a live lock is held.
+  # Rebuilding would create a DUPLICATE workspace, so skip.
+  if session_already_live "$id" "$argv_ids"; then
+    echo "  ⏭ skip — session $id is already live (Herdr already restored this pane)."
+    echo "    Rebuilding would duplicate the workspace; leaving the existing one."
     return 0
   fi
 
@@ -168,10 +210,13 @@ herd_restore_one() {
 # Read the manifest and rebuild every pinned session. Returns non-zero if any
 # session failed to confirm resume.
 herd_restore_rebuild_all() {
-  local failures=0 name id cwd
+  local failures=0 name id cwd argv_ids
+  # Scan the live-argv id set ONCE up front (not per session) — the race-free
+  # half of the reconciliation guard. Passed to each herd_restore_one.
+  argv_ids="$(live_session_ids_from_argv)"
   while IFS=$'\t' read -r name id cwd; do
     [ -n "$name" ] || continue
-    herd_restore_one "$name" "$id" "$cwd" || failures=$(( failures + 1 ))
+    herd_restore_one "$name" "$id" "$cwd" "$argv_ids" || failures=$(( failures + 1 ))
   done < "$MANIFEST"
   return $(( failures > 0 ? 1 : 0 ))
 }
