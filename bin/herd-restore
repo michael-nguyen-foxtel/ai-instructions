@@ -2,7 +2,9 @@
 # herd-restore — rebuild Herdr workspaces and resume pinned Kiro sessions
 #
 # Run this after a restart to bring back your pinned sessions.
-# Reads ~/.config/herd/restore.tsv (populated by herd-pin / herd-pin-current).
+# Reads the pin manifest from the herd.restore plugin state dir
+# (populated by herd-pin / herd-pin-current). The startup plugin hook
+# invokes the same core automatically after a Herdr restart.
 #
 # Usage:
 #   herd-restore            # rebuild all pinned sessions
@@ -27,7 +29,30 @@
 
 set -euo pipefail
 
-MANIFEST="${HERD_RESTORE_MANIFEST:-$HOME/.config/herd/restore.tsv}"
+# ── Manifest location (T13/WS-4) ──────────────────────────────────────────
+# The pin manifest now lives in the herd.restore plugin's state dir so the
+# Herdr [[startup]] hook (which gets HERDR_PLUGIN_STATE_DIR) and the pin
+# scripts (plain shells, which do NOT) agree on one path. The state dir is a
+# deterministic XDG path derived from the plugin id, so a plain shell can
+# compute it without the hook-only env var:
+#   ${XDG_STATE_HOME:-~/.local/state}/herdr/plugins/herd.restore/restore.tsv
+# Precedence: explicit HERD_RESTORE_MANIFEST override → plugin state dir →
+# legacy ~/.config/herd/restore.tsv (only if it still exists and the new one
+# does not, easing the one-time migration).
+_herd_state_manifest() {
+  local base="${XDG_STATE_HOME:-$HOME/.local/state}"
+  printf '%s\n' "$base/herdr/plugins/herd.restore/restore.tsv"
+}
+if [ -n "${HERD_RESTORE_MANIFEST:-}" ]; then
+  MANIFEST="$HERD_RESTORE_MANIFEST"
+else
+  MANIFEST="$(_herd_state_manifest)"
+  # Legacy fallback: read the old path if it exists and the new one doesn't.
+  legacy="$HOME/.config/herd/restore.tsv"
+  if [ ! -s "$MANIFEST" ] && [ -s "$legacy" ]; then
+    MANIFEST="$legacy"
+  fi
+fi
 SESSIONS_DIR="${KIRO_SESSIONS_DIR:-$HOME/.kiro/sessions/cli}"
 
 # ── Single-process lock helpers ───────────────────────────────────────────
