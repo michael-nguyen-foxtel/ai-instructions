@@ -107,14 +107,72 @@ live_session_ids_from_argv() {
     | sort -u
 }
 
-# True (0) if $1 is a session already live under Herdr — either its id appears
-# in the pre-scanned argv set ($2, newline-delimited) OR it holds a live lock.
+# True (0) if $1 is a session already live under Herdr. Three signals, skip if
+# ANY holds:
+#   (0) it IS the restore context's own session ($KIRO_SESSION_ID) — you can
+#       never need to rebuild the session you are running FROM, and doing so
+#       is the exact race that produced a bare shell for the launching pane
+#       (2026-09-15: hq-ws4 was the live HQ chat herd-restore ran from; the
+#       rebuild collided with Herdr's replay of that same pane). This signal
+#       is race-free and needs no argv/lock timing to have settled. It is only
+#       populated for the MANUAL path — the [[startup]] hook fires in Herdr's
+#       process with no KIRO_SESSION_ID, where direction (1)/(2) cover it.
+#   (1) its id appears in the pre-scanned live-argv set ($2, newline-delimited).
+#   (2) it holds a live single-process lock (session_is_active).
 session_already_live() {
   local id="$1" argv_ids="${2:-}"
+  if [ -n "${KIRO_SESSION_ID:-}" ] && [ "$id" = "$KIRO_SESSION_ID" ]; then
+    return 0
+  fi
   if [ -n "$argv_ids" ] && printf '%s\n' "$argv_ids" | grep -qxF "$id"; then
     return 0
   fi
   [ "$(session_is_active "$id")" = "alive" ]
+}
+
+# ── Bounded wait-and-recheck (T13/WS-4 race fix, direction 2) ──────────────
+# The race: after `server stop` + relaunch there is a window where Herdr's
+# snapshot restore has NOT YET re-run a pinned pane's `chat --resume-id <id>`
+# (so no argv match) AND Kiro has NOT YET written `<id>.lock` (so no lock
+# match). A guard that checks inside that gap sees "not live" and rebuilds;
+# milliseconds later Herdr's replay relocks the session and the rebuild's own
+# `agent start` collides with the single-process lock → timeout → bare shell.
+#
+# This helper gives Herdr's async replay a bounded chance to settle before we
+# commit to rebuilding. It RE-SCANS the live signals each iteration (the argv
+# set passed into herd_restore_one was scanned once up-front and is stale for
+# this purpose), returning as soon as the session shows up live — or after the
+# budget expires. It is a no-op cost on the common path: the FIRST check runs
+# before any sleep, so a session that is genuinely absent still returns fast
+# on iteration 0; only a session that is present-but-not-yet-visible pays the
+# poll, which is exactly the case we must not lose to a rebuild.
+#
+# Budget is intentionally small (a few hundred ms total) — long enough to
+# cover Herdr's replay + Kiro's lock-write latency, short enough not to stall
+# a restore of many genuinely-absent sessions. Tunable via env:
+#   HERD_RESTORE_SETTLE_TRIES  (default 6)   number of checks (incl. the first)
+#   HERD_RESTORE_SETTLE_SLEEP  (default 0.25) seconds between checks
+#
+# Returns 0 (skip — it settled live) or 1 (still not live after the budget).
+session_settles_live() {
+  local id="$1"
+  local tries="${HERD_RESTORE_SETTLE_TRIES:-6}"
+  local nap="${HERD_RESTORE_SETTLE_SLEEP:-0.25}"
+  local i fresh_argv
+  for (( i = 0; i < tries; i++ )); do
+    # Own-session + lock are cheap; re-scan argv fresh (do NOT reuse the stale
+    # pre-scanned set) so a just-replayed pane is seen the moment it appears.
+    fresh_argv="$(live_session_ids_from_argv)"
+    if session_already_live "$id" "$fresh_argv"; then
+      return 0
+    fi
+    # Sleep BETWEEN checks only, never after the last — keeps the genuinely
+    # -absent path from paying the full budget's tail.
+    if [ "$(( i + 1 ))" -lt "$tries" ]; then
+      sleep "$nap"
+    fi
+  done
+  return 1
 }
 
 # ── Post-start verification (SOFT signal) ─────────────────────────────────
@@ -139,10 +197,10 @@ verify_resumed() {
 
 # ── Rebuild core (sharable with a future [[startup]] plugin) ──────────────
 
-# Rebuild a single pinned session. Args: name, session-id, cwd, [live-argv-ids].
+# Rebuild a single pinned session. Args: name, session-id, cwd.
 # Honors DRY_RUN. Emits progress; returns non-zero on a detected failure.
 herd_restore_one() {
-  local name="$1" id="$2" cwd="$3" argv_ids="${4:-}"
+  local name="$1" id="$2" cwd="$3"
   local rc=0
 
   echo "→ Restoring '$name'  (session $id)"
@@ -161,11 +219,21 @@ herd_restore_one() {
 
   # Reconciliation guard: is this session ALREADY live under Herdr? After a
   # server restart Herdr's snapshot replay may have already brought the pane
-  # back resuming this id (argv signal, race-free) — or a live lock is held.
-  # Rebuilding would create a DUPLICATE workspace, so skip.
-  if session_already_live "$id" "$argv_ids"; then
+  # back resuming this id (argv signal) — or a live lock is held — or this IS
+  # the session we are running from ($KIRO_SESSION_ID). Rebuilding any of those
+  # duplicates the workspace or races Herdr's replay into a bare shell, so skip.
+  #
+  # We use the bounded settle-and-recheck (session_settles_live) rather than a
+  # single check: after `server stop`+relaunch a pinned pane can be briefly
+  # invisible to BOTH the argv and lock signals while Herdr's async replay is
+  # in flight. A single check inside that window sees "not live" and rebuilds,
+  # colliding with the replay's relock (2026-09-15: bare shell for hq-ws4). The
+  # settle poll re-scans the live signals for a small budget so the replay can
+  # surface first. The very first check runs before any sleep, so a genuinely
+  # absent session still falls through to rebuild promptly.
+  if session_settles_live "$id"; then
     echo "  ⏭ skip — session $id is already live (Herdr already restored this pane)."
-    echo "    Rebuilding would duplicate the workspace; leaving the existing one."
+    echo "    Rebuilding would duplicate the workspace or race its restore; leaving it."
     return 0
   fi
 
@@ -210,13 +278,14 @@ herd_restore_one() {
 # Read the manifest and rebuild every pinned session. Returns non-zero if any
 # session failed to confirm resume.
 herd_restore_rebuild_all() {
-  local failures=0 name id cwd argv_ids
-  # Scan the live-argv id set ONCE up front (not per session) — the race-free
-  # half of the reconciliation guard. Passed to each herd_restore_one.
-  argv_ids="$(live_session_ids_from_argv)"
+  local failures=0 name id cwd
+  # The reconciliation guard now re-scans the live-argv set fresh inside the
+  # bounded settle poll (session_settles_live) so it can catch a pane that
+  # Herdr's async replay surfaces mid-restore. A single up-front scan would be
+  # a stale snapshot for that purpose, so it is gone — the poll owns the scan.
   while IFS=$'\t' read -r name id cwd; do
     [ -n "$name" ] || continue
-    herd_restore_one "$name" "$id" "$cwd" "$argv_ids" || failures=$(( failures + 1 ))
+    herd_restore_one "$name" "$id" "$cwd" || failures=$(( failures + 1 ))
   done < "$MANIFEST"
   return $(( failures > 0 ? 1 : 0 ))
 }
