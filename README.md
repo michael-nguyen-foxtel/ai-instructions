@@ -101,6 +101,7 @@ Reviews the diff against team conventions and the originating spec. Creates a PR
 | `/wayfinder` | Effort too big for one session — chart a map of decisions, resolve them one-at-a-time |
 | `/prototype` | "How should it look?" or "How should it behave?" — make a throwaway artifact to react to |
 | `/research` | Need facts from docs, APIs, or code — fires a background agent |
+| `/grill-me` | Stress-test an idea (no docs output, just decisions) |
 
 ### Upkeep Skills
 
@@ -109,25 +110,30 @@ Reviews the diff against team conventions and the originating spec. Creates a PR
 | `/improve-codebase-architecture` | Find modules worth refactoring (visual HTML report) |
 | `/diagnosing-bugs` | Hard bug — systematic diagnosis, never guess-and-patch |
 | `/resolving-merge-conflicts` | In-progress merge/rebase conflict — hunk by hunk |
+| `/security-audit` | Check code and dependencies for vulnerabilities |
+| `/dependency-check` | Evaluate whether to add a package |
+| `/qa-build` | Push the current branch to QA for a staging build |
 
 ### Productivity Skills
 
 | Skill | When to use |
 |-------|-------------|
-| `/grill-me` | Stress-test an idea (no docs output, just decisions) |
 | `/handoff` | Compress session state so another agent/session can continue |
 | `/wait-what` | Last message didn't land — re-pitch in plain English |
 | `/teach` | Learn a topic across multiple sessions |
-| `/writing-for-agents` | Reference for writing skills and agent docs |
+| `/to-questionnaire` | Turn a decision into a questionnaire for someone else to fill in |
+| `/version-bump` | Version bump + release PR |
 
-### Ops Skills
+### Ops / Team Skills
 
 | Skill | When to use |
 |-------|-------------|
 | `/deploy-fiso` | Deploy widget packages to S3 + notify FISO |
 | `/deploy-coupler` | Deploy coupler to Elastic Beanstalk |
+| `/environment-check` | Pre-validate toolchain before builds/deploys/installs |
 | `/release-email` | Generate formatted release notification |
-| `/version-bump` | Version bump + release PR |
+| `/release-notes` | Technical release notes from merged PRs |
+| `/release-notes-nontechnical` | User-facing release notes for stakeholders |
 
 ### Reference Skills (invoked by other skills)
 
@@ -138,6 +144,15 @@ Reviews the diff against team conventions and the originating spec. Creates a PR
 | `/tdd` | Red-green-refactor at seam boundaries |
 | `/codebase-design` | Deep modules vocabulary |
 | `/build-verify` | Post-change lint + test loop |
+| `/writing-for-agents` | Reference for writing skills and agent docs |
+| `/cicd-conventions` | CI/CD + infra conventions (GitHub Actions, AWS, observability) |
+| `/wizard` | Generate a guided, resumable operator walkthrough for human-only steps |
+
+> **Main Flow skills** (`/grill-with-docs`, `/grilling`, `/to-spec`, `/to-tickets`,
+> `/implement-from-spec`, `/code-review`, `/pull-requests`, `/stacked-prs`,
+> `/commit-messages`) are documented in **The Main Flow** section above. The
+> authoritative grouping for every skill is the `SKILL_CATEGORIES` map in `setup.sh`;
+> this README mirrors it.
 
 ---
 

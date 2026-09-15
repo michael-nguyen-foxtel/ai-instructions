@@ -87,6 +87,27 @@ The **phase-boundary** delegate/handoff/inline decision (`context-management.md`
 subagent tool-scoping (below) both apply this rule; this section is its single source
 of truth.
 
+## Skill Invocation Axis
+
+Every skill has an **invocation axis** (tracked in `SKILL_AXIS` in `setup.sh`):
+
+- **user-invoked** — a human triggers it (a slash command) to *orchestrate*
+  (`/grill-with-docs`, `/to-spec`, `/wayfinder`, `/implement-from-spec`, …).
+- **model-invoked** — a reusable *discipline* other skills pull in mid-run
+  (`grilling`, `tdd`, `build-verify`, `domain-modeling`, `codebase-design`,
+  `writing-for-agents`, `commit-messages`, `cicd-conventions`).
+
+**Rule: a user-invoked skill may invoke model-invoked skills, but must NEVER invoke
+another user-invoked skill _inline in the same context window_.** Chaining
+orchestrators inline collapses two jobs into one window and destroys the human-in-loop
+review the split exists to protect.
+
+The escape hatch is a **gate crossing** (per the three-gate rule above): to hand work
+to another user-invoked skill, dispatch it to a **subagent** (Gate 2) or a **Herdr
+sibling** (Gate 3) — a separate context window — not inline. A **narrative pointer**
+("when this is done, run `/to-spec`") is not an invocation and is always fine; it is
+the human's cue to start the next skill, not this skill running it.
+
 ## Subagent Tool Scoping (Hard Rule)
 
 **A subagent's MCP tool scope must match its declared job.** A read-only subagent

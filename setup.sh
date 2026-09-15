@@ -28,6 +28,7 @@ SKILL_CATEGORIES=(
   [implement-from-spec]="main-flow"
   [code-review]="main-flow"
   [pull-requests]="main-flow"
+  [stacked-prs]="main-flow"
   [commit-messages]="main-flow"
   # Shaping
   [wayfinder]="shaping"
@@ -41,6 +42,7 @@ SKILL_CATEGORIES=(
   [security-audit]="upkeep"
   [dependency-check]="upkeep"
   [qa-build]="upkeep"
+  [wizard]="upkeep"
   # Reference
   [domain-modeling]="reference"
   [codebase-design]="reference"
@@ -72,6 +74,7 @@ SKILL_DESCRIPTIONS=(
   [implement-from-spec]="Implement a spec: plan → build → test → review"
   [code-review]="Review a diff against conventions and spec"
   [pull-requests]="Create PRs with proper format"
+  [stacked-prs]="Create/manage/merge stacked PRs with Graphite"
   [commit-messages]="Conventional commit format"
   [wayfinder]="Chart large efforts as a decision map"
   [prototype]="Throwaway code to answer design questions"
@@ -83,6 +86,7 @@ SKILL_DESCRIPTIONS=(
   [security-audit]="Check code and deps for vulnerabilities"
   [dependency-check]="Evaluate whether to add a package"
   [qa-build]="Push to QA branch for staging build (git push-qa)"
+  [wizard]="Generate a guided, resumable operator walkthrough for human-only steps"
   [domain-modeling]="Maintain CONTEXT.md glossary + ADRs"
   [codebase-design]="Deep modules vocabulary"
   [tdd]="Red-green-refactor at seam boundaries"
@@ -100,6 +104,57 @@ SKILL_DESCRIPTIONS=(
   [release-email]="Generate release notification email"
   [release-notes]="Technical release notes from PRs"
   [release-notes-nontechnical]="User-facing release notes"
+)
+
+# Invocation axis (upstream mattpocock/skills convention):
+#   user   = user-invoked — a human triggers it (a slash command) to orchestrate.
+#   model  = model-invoked — a reusable discipline that OTHER skills pull in mid-run.
+# The rule: a user-invoked skill may invoke model-invoked skills, but must NEVER
+# invoke another user-invoked skill INLINE in the same context window. To hand work
+# to another user-invoked skill, cross a context boundary (dispatch a subagent or a
+# Herdr sibling) — see the three-gate rule in steering/task-routing.md. Narrative
+# "next, run /x" pointers are not invocations and are fine.
+declare -A SKILL_AXIS
+SKILL_AXIS=(
+  # model-invoked (reference disciplines other skills pull in)
+  [grilling]="model"
+  [domain-modeling]="model"
+  [tdd]="model"
+  [build-verify]="model"
+  [codebase-design]="model"
+  [writing-for-agents]="model"
+  [commit-messages]="model"
+  [cicd-conventions]="model"
+  [wizard]="model"
+  # user-invoked (human triggers to orchestrate)
+  [grill-with-docs]="user"
+  [grill-me]="user"
+  [to-spec]="user"
+  [to-tickets]="user"
+  [implement-from-spec]="user"
+  [code-review]="user"
+  [pull-requests]="user"
+  [stacked-prs]="user"
+  [wayfinder]="user"
+  [prototype]="user"
+  [research]="user"
+  [improve-codebase-architecture]="user"
+  [diagnosing-bugs]="user"
+  [resolving-merge-conflicts]="user"
+  [security-audit]="user"
+  [dependency-check]="user"
+  [qa-build]="user"
+  [handoff]="user"
+  [teach]="user"
+  [wait-what]="user"
+  [to-questionnaire]="user"
+  [version-bump]="user"
+  [deploy-coupler]="user"
+  [deploy-fiso]="user"
+  [environment-check]="user"
+  [release-email]="user"
+  [release-notes]="user"
+  [release-notes-nontechnical]="user"
 )
 
 CATEGORY_NAMES=(
@@ -168,9 +223,52 @@ get_skills_in_category() {
   echo "${sorted[@]}"
 }
 
+# Warn about any skills/<dir> (containing a SKILL.md) that is NOT in
+# SKILL_CATEGORIES. Such a skill is invisible to every install mode — the
+# `stacked-prs` silent-drop was exactly this. Prints a warning per orphan and
+# returns 1 if any were found (callers may choose to continue).
+check_uncategorised_skills() {
+  local orphans=()
+  local axis_orphans=()
+  local dir name
+  for dir in "$SKILLS_SOURCE"/*/; do
+    [ -f "$dir/SKILL.md" ] || continue
+    name="$(basename "$dir")"
+    if [ -z "${SKILL_CATEGORIES[$name]+set}" ]; then
+      orphans+=("$name")
+    fi
+    if [ -z "${SKILL_AXIS[$name]+set}" ]; then
+      axis_orphans+=("$name")
+    fi
+  done
+  local rc=0
+  if [ "${#orphans[@]}" -gt 0 ]; then
+    echo "⚠  WARNING: these skills exist on disk but are missing from SKILL_CATEGORIES" >&2
+    echo "   — they will NOT be installed by any mode until added to the map:" >&2
+    for name in "${orphans[@]}"; do
+      echo "     - $name" >&2
+    done
+    echo "   Add each to SKILL_CATEGORIES (and SKILL_DESCRIPTIONS) in setup.sh." >&2
+    rc=1
+  fi
+  if [ "${#axis_orphans[@]}" -gt 0 ]; then
+    echo "⚠  WARNING: these skills are missing an invocation axis in SKILL_AXIS:" >&2
+    for name in "${axis_orphans[@]}"; do
+      echo "     - $name" >&2
+    done
+    echo "   Add each to SKILL_AXIS (\"user\" or \"model\") in setup.sh." >&2
+    rc=1
+  fi
+  return $rc
+}
+
 # --- Main ---
 
 mode="${1:-interactive}"
+
+# Adversarial guard: surface any on-disk skill missing from the category map
+# before installing, so a new skill can never be silently dropped again.
+check_uncategorised_skills || true
 
 if [[ "$mode" == "--all" ]]; then
   echo "Installing ALL skills to: $SKILLS_TARGET"
