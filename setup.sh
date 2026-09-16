@@ -210,6 +210,21 @@ install_bin() {
   echo "  ✓ Installed $count helper script(s) to $BIN_TARGET"
 }
 
+# Install the git-guard hooks (bin/git-guard) as a GLOBAL git hooksPath so that
+# protected-branch and force-push protection applies to EVERY repo on this machine
+# — including every repo an agent or sub-agent operates in via a `shell` tool. This
+# is deliberately a git-layer boundary, not an agent-prompt request: a model cannot
+# route a `git push`/`git commit` around a hook git runs on its behalf. Idempotent.
+# NOTE: changes global git config (core.hooksPath), hence the caller prompts in
+# interactive mode.
+install_git_guard() {
+  local guard_installer="$BIN_SOURCE/git-guard/install.sh"
+  if [ ! -f "$guard_installer" ]; then
+    return 0
+  fi
+  bash "$guard_installer"
+}
+
 get_skills_in_category() {
   local category="$1"
   local skills=()
@@ -286,6 +301,9 @@ if [[ "$mode" == "--all" ]]; then
   echo ""
   echo "Installing helper scripts to: $BIN_TARGET"
   install_bin
+  echo ""
+  echo "Installing git-guard (global protected-branch + force-push hooks)"
+  install_git_guard
 
 elif [[ "$mode" == "--universal" ]]; then
   echo "Installing universal skills to: $SKILLS_TARGET"
@@ -299,6 +317,9 @@ elif [[ "$mode" == "--universal" ]]; then
   echo ""
   echo "Installing helper scripts to: $BIN_TARGET"
   install_bin
+  echo ""
+  echo "Installing git-guard (global protected-branch + force-push hooks)"
+  install_git_guard
 
 else
   # Interactive mode
@@ -381,6 +402,21 @@ else
     else
       echo "  Skipped."
     fi
+  fi
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "git-guard (global git hooks: block direct pushes/commits to main/master/develop/qa"
+  echo "and all force-pushes — enforced for every repo, human and agent alike)"
+  echo ""
+  echo "  ⚠  This sets your GLOBAL git config core.hooksPath. Existing global hooks are"
+  echo "     chained (run first), not discarded. Human override: GIT_GUARD_ALLOW=1."
+  echo ""
+  read -p "  Install git-guard? [y/N]: " guardchoice
+  if [[ "$guardchoice" == "y" || "$guardchoice" == "Y" ]]; then
+    install_git_guard
+  else
+    echo "  Skipped."
   fi
 
   echo ""

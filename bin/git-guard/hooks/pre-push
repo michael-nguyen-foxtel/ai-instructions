@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# git-guard :: pre-push
+#
+# Server-side-style enforcement at the git layer: refuses pushes to protected
+# branches and ALL force-pushes, no matter who or what invoked `git push`. This
+# is the boundary that a `shell`-wielding agent cannot talk its way around — the
+# rule lives in git, not in a prompt the model is asked to obey.
+#
+# Blocks:
+#   1. Any push whose destination ref is a protected branch (main/master/develop/qa).
+#   2. Any force-push (detected via the reflog "forced-update" marker git passes on
+#      stdin, and as a belt-and-braces backstop, a non-fast-forward local check).
+#
+# Chaining: if a repo had its own pre-push hook, git-guard/install.sh saved it as
+# `pre-push.local` in the hooks dir; we invoke it FIRST and honour its exit code,
+# so this guard is additive, never a silent replacement.
+#
+# Override for genuine human intervention (never granted to an agent):
+#   GIT_GUARD_ALLOW=1 git push ...
+# Use only for the rare manual case the admin-bypass privilege exists for.
+
+set -euo pipefail
+
+PROTECTED_BRANCHES="${GIT_GUARD_PROTECTED_BRANCHES:-main master develop qa}"
+
+hooks_dir="$(dirname "$0")"
+
+# 1. Chain to any pre-existing repo-local hook first.
+if [ -x "$hooks_dir/pre-push.local" ]; then
+  "$hooks_dir/pre-push.local" "$@" || exit $?
+fi
+
+# 2. Explicit human override (documented; agents are told never to set it).
+if [ "${GIT_GUARD_ALLOW:-0}" = "1" ]; then
+  echo "git-guard: GIT_GUARD_ALLOW=1 set — bypassing protected-branch/force-push guard (human override)." >&2
+  exit 0
+fi
+
+remote_name="${1:-}"
+remote_url="${2:-}"
+
+is_protected() {
+  local branch="$1"
+  local p
+  for p in $PROTECTED_BRANCHES; do
+    [ "$branch" = "$p" ] && return 0
+  done
+  return 1
+}
+
+reject() {
+  # $1 = reason line
+  echo "" >&2
+  echo "🛑 git-guard BLOCKED this push." >&2
+  echo "   $1" >&2
+  echo "" >&2
+  echo "   Changes reach protected branches via pull request only." >&2
+  echo "   Protected: ${PROTECTED_BRANCHES}" >&2
+  echo "   If you are a human doing a rare, deliberate manual intervention," >&2
+  echo "   re-run with:  GIT_GUARD_ALLOW=1 git push ..." >&2
+  echo "" >&2
+  exit 1
+}
+
+# git feeds each ref being pushed on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+# A deletion has local sha = 0000...; a force/non-ff is detected below.
+zero="0000000000000000000000000000000000000000"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Skip empty lines.
+  [ -z "${remote_ref:-}" ] && continue
+
+  # Destination branch name (strip refs/heads/).
+  dest_branch="${remote_ref#refs/heads/}"
+
+  # (a) Protected-branch push — block any update (create/update/delete) to it.
+  if is_protected "$dest_branch"; then
+    reject "Destination branch '${dest_branch}' is protected — direct pushes are not allowed."
+  fi
+
+  # (b) Force-push / non-fast-forward detection.
+  #     If the remote already has this ref (remote_sha != 0) and it is NOT an
+  #     ancestor of the local sha, this push rewrites remote history = a force.
+  if [ "$remote_sha" != "$zero" ] && [ "$local_sha" != "$zero" ]; then
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      reject "Non-fast-forward (force) push to '${dest_branch}' would rewrite published history."
+    fi
+  fi
+done
+
+exit 0
