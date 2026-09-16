@@ -13,6 +13,31 @@
     "use_aws",
     "@github-mcp-server"
   ],
+  "toolsSettings": {
+    "shell": {
+      "allowedCommands": [
+        "^git (status|diff|log|show|branch|remote|rev-parse|describe|fetch|ls-files|config --get|for-each-ref)\\b.*$",
+        "^gh (run|workflow|pr|api|repo|release) (list|view|status|watch|download)\\b.*$",
+        "^(npm|yarn|pnpm) (run )?(test|build|lint|typecheck|ci)[\\w:-]*( .*)?$",
+        "^(ls|cat|head|tail|grep|rg|find|which|env|node|npx|jq|yq|act) \\b.*$",
+        "^docker (ps|images|logs|inspect)\\b.*$"
+      ],
+      "deniedCommands": [
+        "\\brm\\b", "\\bsudo\\b", "\\bgit\\s+push\\b", "\\bgit\\s+commit\\b",
+        "\\bgit\\s+reset\\b", "\\bgit\\s+rebase\\b", "\\bgit\\s+merge\\b",
+        "\\bgit\\s+tag\\b", "\\bgit\\s+checkout\\b",
+        "\\bgh\\s+pr\\s+merge\\b", "\\bgh\\s+release\\s+create\\b",
+        "\\bnpm\\s+publish\\b", "\\bchmod\\b", "\\bchown\\b",
+        "\\baws\\b.*\\b(delete|terminate|remove|put|create|update|deploy)\\b"
+      ],
+      "autoAllowReadonly": true,
+      "denyByDefault": true
+    },
+    "use_aws": {
+      "allowedServices": ["s3", "elasticbeanstalk", "cloudfront", "logs", "cloudwatch", "ec2"],
+      "autoAllowReadonly": true
+    }
+  },
   "mcpServers": {
     "github-mcp-server": {
       "command": "/bin/bash",
