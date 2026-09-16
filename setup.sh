@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # setup.sh
 # Install AI skills into your Kiro CLI configuration.
 #
@@ -6,6 +6,11 @@
 #   ./setup.sh              Interactive — pick which skills to install
 #   ./setup.sh --all        Install everything (universal + team-specific)
 #   ./setup.sh --universal  Install all universal skills without prompting
+#
+# Requires bash 4+ (uses associative arrays via `declare -A`). macOS ships
+# bash 3.2 at /bin/bash, which lacks associative arrays — the `#!/usr/bin/env bash`
+# shebang picks up a newer bash from PATH (e.g. Homebrew's `brew install bash`).
+# Run with `bash --version` >= 4 if invoking explicitly.
 
 set -e
 
