@@ -137,6 +137,22 @@ Current read-only subagents held to this: `researcher`, `devops`, `pr-reviewer`
 `researcher` subagent once committed a file directly to `origin/main` through an
 unrestricted GitHub MCP server whose blocklist omitted `create_or_update_file`.
 
+### The `shell` escape hatch and git-guard
+
+A blocklist only constrains an MCP server's named tools. An agent that holds the
+general-purpose `shell` tool (currently `devops` and `test-writer`) can reach `git`,
+`aws`, and `rm` directly, so a "never push to main" line in its prompt is a *request*,
+not a boundary — exactly the thing to distrust. Where an agent genuinely needs `shell`
+(running tests, debugging CI) and it cannot be swapped for a narrow MCP tool, back the
+prompt rule with a **git-layer boundary**: the **git-guard** hooks (`bin/git-guard`,
+installed by `setup.sh` as a global `core.hooksPath`) refuse direct pushes/commits to
+`main`/`master`/`develop`/`qa` and all force-pushes, for every repo and every actor —
+human or agent — because git runs the hook regardless of who typed the command. The
+human override is `GIT_GUARD_ALLOW=1`, documented for rare manual interventions and
+never given to an agent. Prefer removing `shell` (the `pr-reviewer` model: no `shell`,
+git writes disabled at the MCP server) when an agent does not truly need it; use
+git-guard as defence-in-depth when it does.
+
 ## Error Recovery (Hard Rule)
 
 **When something fails, STOP and THINK before acting.** Do not enter a fix loop.

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# git-guard :: pre-commit
+#
+# Refuses commits made while HEAD is on a protected branch (main/master/develop/qa).
+# Pairs with the pre-push guard: pre-push stops the push, this stops the commit
+# ever landing on a protected branch locally in the first place, so an agent
+# cannot quietly build up commits on `main` and then look for a way to ship them.
+#
+# Chaining: a pre-existing repo-local pre-commit hook is saved as `pre-commit.local`
+# by git-guard/install.sh and run FIRST, so lint/format/test hooks still fire.
+#
+# Human override (never granted to an agent):
+#   GIT_GUARD_ALLOW=1 git commit ...
+
+set -euo pipefail
+
+PROTECTED_BRANCHES="${GIT_GUARD_PROTECTED_BRANCHES:-main master develop qa}"
+
+hooks_dir="$(dirname "$0")"
+
+# 1. Chain to any pre-existing repo-local hook first (lint/format/etc.).
+if [ -x "$hooks_dir/pre-commit.local" ]; then
+  "$hooks_dir/pre-commit.local" "$@" || exit $?
+fi
+
+# 2. Explicit human override.
+if [ "${GIT_GUARD_ALLOW:-0}" = "1" ]; then
+  echo "git-guard: GIT_GUARD_ALLOW=1 set — allowing commit on protected branch (human override)." >&2
+  exit 0
+fi
+
+# Current branch (empty on detached HEAD — allow, since it's not a protected branch).
+branch="$(git symbolic-ref --short -q HEAD || true)"
+[ -z "$branch" ] && exit 0
+
+for p in $PROTECTED_BRANCHES; do
+  if [ "$branch" = "$p" ]; then
+    echo "" >&2
+    echo "🛑 git-guard BLOCKED this commit." >&2
+    echo "   You are on protected branch '${branch}'. Commit on a feature branch instead:" >&2
+    echo "     git checkout -b <type>/<ticket>-<slug>" >&2
+    echo "   Protected: ${PROTECTED_BRANCHES}" >&2
+    echo "   Human override (rare, deliberate): GIT_GUARD_ALLOW=1 git commit ..." >&2
+    echo "" >&2
+    exit 1
+  fi
+done
+
+exit 0
