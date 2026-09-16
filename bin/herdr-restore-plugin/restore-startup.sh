@@ -21,8 +21,12 @@
 
 set -euo pipefail
 
-# ── WS-4 step 1: keep the hook non-destructive. Flip to false in step 3. ──
-DRY_RUN=true
+# ── WS-4 step 3: ARMED. The hook now performs real reconcile actions —
+# resume-into-bare-shell + fresh-workspace fallback. Verified safe: Herdr
+# restores bare panes only (never auto-resumes Kiro; herdr-server.log, 6
+# restarts), so there is no hook-vs-Herdr race for the agent. Skip branches
+# (live pane / superseded pin) are no-ops. Set back to true to disarm.
+DRY_RUN=false
 
 log() { printf '[herd.restore hook] %s\n' "$*"; }
 
@@ -79,7 +83,7 @@ source "$CORE"
 # to finish, then fill only bare-shell panes by resuming INTO them) rather than
 # racing the replay with a fixed sleep. See the core's reconcile_bare_shells.
 if reconcile_bare_shells; then
-  log "dry-run reconcile complete — all pinned sessions accounted for."
+  log "reconcile complete (dry_run=$DRY_RUN) — all pinned sessions accounted for."
 else
-  log "dry-run reconcile reported issues above (missing session file, ambiguous cwd, etc.)."
+  log "reconcile reported issues above (missing session file, ambiguous cwd, etc.; dry_run=$DRY_RUN)."
 fi
