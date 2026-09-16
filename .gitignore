@@ -1,0 +1,4 @@
+# Local Kiro working artifacts (specs, wayfinder maps, handoffs, session state).
+# These are on-disk working documents, not part of the versioned skills/steering
+# mirror this repo tracks. See README "Architecture".
+.kiro/
