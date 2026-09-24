@@ -44,9 +44,17 @@ Two independent release types — know which one you're doing.
 
 ### 1. hawk-web-server on its own
 
-Same as magneto-web-server: bump `package.json` (from `node-app/`), open a version
-PR, merge, then deploy to Elastic Beanstalk. No widget coupling. Use the `version-bump`
-skill.
+Same as magneto-web-server: bump `package.json` (from `node-app/`), open a version PR,
+merge, then release. Deploy is via GitHub Actions — the
+`Production - Build, test, and release a new version` workflow, run against the release
+tag (staging uses the `Staging - ...` workflow run against your branch). No widget
+coupling. Use the `version-bump` skill.
+
+**Version numbering:** hawk-web-server bumps its **own independent semver**. We *try* to
+keep it loosely aligned with the hawk-widgets version, but it is an aspiration, not a
+rule — hawk-web-server ships its own changes, so the two versions drift and the server is
+often ahead. Never bump the server *backwards* to match a lower widget version; always
+bump forward from the server's current version.
 
 ### 2. hawk-widgets (coupled — production only)
 
@@ -56,21 +64,37 @@ the served widget version in `node-app/src/js/utils/constants.js`
 web-server change + redeploy. Staging needs none of this — `FISO_VERSIONS.staging.hawkwidgets`
 is `'main'`, so staging always serves the latest.
 
+> **Hotfix?** This is the normal-release path. A hotfix follows a different procedure —
+> see the Hawk hotfix Confluence doc, don't use these steps.
+
 Sequence (do them in order — never pin the server to a version that isn't published):
 
 1. **Release hawk-widgets** — version PR → merge → GitHub Release → publish workflow.
    **Gate:** confirm the release run is green AND its `Publish to FISO` job succeeded
    (produces `hawkwidgets_<version>.tar.gz`) before continuing. A red release run's
    publish steps are skipped — do not proceed. (The Mocha/testem job flakes; a retry
-   that goes green is fine.)
+   that goes green is fine.) Note the new widget version.
 2. **hawk-web-server PR #1 — pin the version.** Edit
    `FISO_VERSIONS.production.hawkwidgets` in `node-app/src/js/utils/constants.js`
    (leave `staging` as `'main'`). Branch `fix/WEB-XXXX-bump-hawkwidgets-<version>`;
-   commit `fix(fiso): WEB-XXXX | pin production hawkwidgets to <version>`.
-3. **hawk-web-server PR #2 — version bump.** A SEPARATE PR (blocked by #1), standard
-   `version-bump` flow from `node-app/`.
-4. **Manual EB deploy** of hawk-web-server → this is what makes the new widgets live in
-   production.
+   commit `fix(fiso): WEB-XXXX | pin production hawkwidgets to <version>`. This PR is
+   **only** the constants change — keep it separate from PR #2, and do not merge it yet.
+3. **Deploy to staging + QA.** Get the QA team's go-ahead, then run the
+   `Staging - Build, test, and release a new version` GitHub Actions workflow against
+   the **constants branch** (Actions tab → select workflow → Run workflow → pick your
+   branch). Tell QA it's on staging.
+4. **hawk-web-server PR #2 — version bump.** A SEPARATE PR, standard `version-bump` flow
+   from `node-app/` (independent semver — see numbering note under type 1). Get both PRs
+   reviewed.
+5. **Merge order + tag.** Merge the **constants PR first, then the version-bump PR** into
+   `main`. Create a GitHub Release tag pointing at the merged version-bump commit.
+6. **Deploy to production.** Get QA approval, then run the
+   `Production - Build, test, and release a new version` GitHub Actions workflow against
+   the **release tag**. Verify via the hawk-web-server GitHub deployments page. This is
+   what makes the new widgets live in production.
+
+**Timing gate:** for non-critical releases, do NOT deploy to production after **2PM AEST**
+— continue the following morning.
 
 Cross-link the widget PRs in each server PR's **Related PRs** section so the coupling is
 traceable from either repo.
