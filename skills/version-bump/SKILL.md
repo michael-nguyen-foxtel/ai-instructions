@@ -7,6 +7,12 @@ disable-model-invocation: true
 
 Bump a project's version and create a PR.
 
+> **hawk-widgets** releases are coupled: a production widget release also needs a
+> hawk-web-server version pin + bump + EB redeploy (two separate PRs). Before bumping
+> hawk-widgets, follow the coupled runbook in the Hawk product steering
+> (`product-watchafl-watchnrl.md` → **Releasing**). hawk-web-server on its own bumps
+> normally (below). Magneto and other repos are unaffected.
+
 ## Detecting the flow
 
 Check which versioning strategy the repo uses:
