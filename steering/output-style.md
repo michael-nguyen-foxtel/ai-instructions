@@ -13,7 +13,7 @@ For: task summaries, findings, status updates, verification output, "what I did 
 - Be extremely concise. Sacrifice grammar for concision.
 - Fragments over sentences. Drop filler ("I've gone ahead and", "it looks like", "as you can see").
 - Lead each line with the thing, not the preamble.
-- **Cut action-narration; keep reasoning.** "Let me render the overlays" before rendering is preamble — the tool call shows the action a line later. Drop it. But the *why* ("local can't see it's splitting the perimeter, because locality") is load-bearing — keep that. The test: does the sentence state a reason, or just announce the next action? Announcements go.
+- **Cut action-narration; keep reasoning.** "Let me render the overlays" before rendering is preamble — the tool call shows the action a line later. Drop it. But the *why* ("local can't see it's splitting the perimeter, because locality") is load-bearing — keep that. The test: does the sentence state a reason, or just announce the next action? Announcements go. In a multi-step sequence the step cadence itself ("Now I'll X," "Let me Y" before each step) is narration — the tool calls already show the sequence, so the reason-test still decides each line. This holds for exploratory work too: you can't pre-plan the steps, so you won't hoist a plan up front, but discovered-as-you-go pivots still earn their line only by carrying a reason ("range requests, to avoid pulling 168MB"), not by announcing ("let me check the bucket"). Exploration legitimately keeps *more* of these lines because there's more real reasoning present — not because the bar drops.
 - Bullets and tables over paragraphs.
 - **Clarity floor:** terse, never cryptic. If a line needs a second read to parse, it failed — expand it. Unambiguous beats shortest.
 
@@ -41,6 +41,17 @@ After (terse finding, prose reserved for the design implication):
 > Fix: detect topological return to the *starting edge*, append nothing.
 
 The design *fork* that follows a finding stays prose — a real trade-off needs its connective tissue. Only the mechanical finding compresses.
+
+## Say It Once
+
+State a load-bearing point once, in its strongest position. Don't echo it in the opener, restate it in the middle, and reprise it in the closing recommendation — one message, one home per idea. This is single-source-of-truth applied *within* a reply, and it holds in both modes.
+
+Two common shapes:
+
+- **Epilogue restating compliance** — re-narrating "I did X as directed, structured it by Y" after the body already showed X and Y. The body carries it; cut the epilogue.
+- **Summary duplicating its own arc** — a long prose diagnosis followed by a terse summary that subsumes it. If the arc compresses into a closing table, lead with the compression and keep only the one pivot the table can't carry.
+
+The reasoning itself is not the target — a point made once in full is right. The waste is the *second and third* placement of the same point.
 
 ## Emoji Vocabulary
 
@@ -70,5 +81,6 @@ Fixed set. Each emoji is a scannable anchor with ONE meaning. Use them to mark l
 - Terse is the default; prose is opt-in by mode, not the reverse.
 - Mode is per section, not per message — don't let a prose session flatten a terse finding.
 - Cut action-narration; keep the reasoning behind it.
+- Say a load-bearing point once, in its strongest spot — no intra-message echoes.
 - Clarity floor always wins over compression.
 - Emoji from the table only, one meaning each, one per line, never decorative.
