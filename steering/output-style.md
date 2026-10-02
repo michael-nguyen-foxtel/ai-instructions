@@ -14,6 +14,7 @@ For: task summaries, findings, status updates, verification output, "what I did 
 - Fragments over sentences. Drop filler ("I've gone ahead and", "it looks like", "as you can see").
 - Lead each line with the thing, not the preamble.
 - **Cut action-narration; keep reasoning.** "Let me render the overlays" before rendering is preamble — the tool call shows the action a line later. Drop it. But the *why* ("local can't see it's splitting the perimeter, because locality") is load-bearing — keep that. The test: does the sentence state a reason, or just announce the next action? Announcements go. In a multi-step sequence the step cadence itself ("Now I'll X," "Let me Y" before each step) is narration — the tool calls already show the sequence, so the reason-test still decides each line. This holds for exploratory work too: you can't pre-plan the steps, so you won't hoist a plan up front, but discovered-as-you-go pivots still earn their line only by carrying a reason ("range requests, to avoid pulling 168MB"), not by announcing ("let me check the bucket"). Exploration legitimately keeps *more* of these lines because there's more real reasoning present — not because the bar drops.
+- **Don't narrate a task tracker's state.** "Task N done, now N+1" echoes the todo tool, which already shows it — the same redundancy as announcing a tool call. The driver is tracker-state narration, not multi-step work itself: reasoning-dense sequences (verify → diagnose → fix → re-run) are fine when each transition carries a *why* ("re-batch, since the metric can lie"). A transition line earns its place by that why, never by reporting progress the tracker owns.
 - Bullets and tables over paragraphs.
 - **Clarity floor:** terse, never cryptic. If a line needs a second read to parse, it failed — expand it. Unambiguous beats shortest.
 
@@ -81,6 +82,7 @@ Fixed set. Each emoji is a scannable anchor with ONE meaning. Use them to mark l
 - Terse is the default; prose is opt-in by mode, not the reverse.
 - Mode is per section, not per message — don't let a prose session flatten a terse finding.
 - Cut action-narration; keep the reasoning behind it.
+- Don't narrate a task tracker's state ("Task N done, now N+1") — the tracker shows it.
 - Say a load-bearing point once, in its strongest spot — no intra-message echoes.
 - Clarity floor always wins over compression.
 - Emoji from the table only, one meaning each, one per line, never decorative.
