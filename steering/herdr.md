@@ -105,12 +105,16 @@ Alongside the raw `herdr` CLI, a set of `herd-*` helper scripts in `~/.local/bin
 | `herd-launch <name>` | Create a workspace + start an agent. Fresh session (no history). |
 | `herd-sessions` | List Kiro sessions (last 14 days by default; `--days N` / `--all`). |
 | `herd-pin <slug> <id>` | Pin a session so `herd-restore` brings it back **with history**. |
+| `herd-pin-current [name]` | Pin the session you're **currently in** (reads `$KIRO_SESSION_ID` — always exact). Run from a shell inside that Kiro pane. |
+| `herd-pin-all` | Pin **every** running Kiro session (safety net). Exact when a dir has one session; best-effort (newest-per-dir) when it has several. |
 | `herd-restore` | Rebuild all pinned sessions after a restart. |
-| `herd-checkpoint` | Snapshot running workspaces + pin the resolvable ones. |
+| `herd-checkpoint` | Write a timestamped human-readable **map** of running workspaces (`~/.config/herd/checkpoints/` + `latest.md`), then `herd-pin-all`. `--map-only` skips pinning. |
 
 ### Rules
 
 - **History survives only if pinned.** `herd-restore` resumes **pinned** sessions with their conversation; `herd-launch` starts a **fresh** session. To keep work across a restart, pin it first (`herd-pin`) — pinning is the automated path, so pin sessions worth resuming as they're created.
+- **Checkpoint is two layers: map + pins.** `herd-checkpoint` writes a human-readable **map** (what existed, always reliable — read it and rebuild by hand even when IDs are ambiguous) *and* best-effort pins (machine-actionable for `herd-restore`). The map is the source of truth; pins are convenience on top. Detach survives a terminal close but **not** a shutdown — checkpoint before shutting down.
+- **Exact vs best-effort pins.** `herd-pin-current` (run inside the pane) reads `$KIRO_SESSION_ID` and is always exact. `herd-pin-all` is a sweep that picks the newest session per directory — exact only when a dir holds one session. For a session you can't lose, prefer `herd-pin-current`.
 - **`herd-launch` names are labels; slugs are derived.** Pass any string as the workspace label (spaces and caps are fine, e.g. `"Quicksilver Migration"`); the agent slug is auto-derived. Use `--slug` to override. (The raw `herdr agent start` still needs a bare slug — see the agent-name rule below.)
 - **Matching a workspace to its session:** identify by cwd + first-message text via `herd-sessions`; when a directory has many sessions, file size distinguishes real work (large) from empty shells (~1 KB).
 - **Remove empty shells** with `herdr workspace close <id>` — dead panes with `agent_status: unknown` and no history clutter the sidebar.
@@ -133,7 +137,6 @@ For the reasoning, the debugging history, and the cross-platform pitfalls behind
 | `/to-tickets` (launch prompts) | Copy-paste handoff docs into new sessions |
 | `/implement-from-spec` (parallel) | Separate terminal windows or tmux panes |
 | Stacked PRs (wave merge) | Manual branch switching between worktrees |
-| Stacked PRs (wave merge) | Manual branch switching between worktrees |
 
 ## Constraints
 
@@ -141,3 +144,10 @@ For the reasoning, the debugging history, and the cross-platform pitfalls behind
 - `agent prompt` on a `blocked` agent returns `agent_blocked` — check state first
 - One controller per terminal — `--takeover` required to steal control from another attach
 - Herdr manages the kiro-cli process — don't `kill` agents manually, use workspace close or worktree remove
+
+## Latent Capabilities (not yet adopted)
+
+Documented so they're not rediscovered from scratch. Each stays dormant until its trigger appears.
+
+- **Remote access** — Herdr is client/server, so the client can live elsewhere. Mode 1 (`ssh <host>` then `herdr`) is the phone/tablet path; Mode 2 (`herdr --remote <host>`) is a local thin client that also bridges clipboard. **Trigger:** a remote box for long agent jobs, or wanting phone check-ins on `blocked` agents. The phone path has a safety prerequisite — reach the Mac over **Tailscale** (private WireGuard mesh), never public-internet SSH; run the guided `herd-phone-access-walkthrough` script (generated via the `wizard` skill) for the Tailscale + SSH-hardening setup.
+- **Named sessions** (`herdr session attach <name>`) — independent, non-mirroring views (one per monitor). Default-session clients always **mirror** each other regardless of navigation; named sessions are the only way to diverge them. **Trade-off:** named sessions don't span the default-session `herd-restore` scripts, so restore needs per-session handling. **Trigger:** genuinely wanting different things on each screen at once. Until then, one default session + `ctrl+b w` to switch views is simpler.

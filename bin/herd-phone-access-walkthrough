@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# herd-phone-access-walkthrough.sh
+#
+# Guided, resumable operator walkthrough for SAFE phone access to this Mac's
+# Herdr session — so you can check on `blocked` agents from your phone.
+#
+# The load-bearing safety decision is the TRANSPORT: reach the Mac over
+# Tailscale (a private WireGuard mesh), NEVER public-internet SSH. Everything
+# else is secondary. Once connected it's just Herdr Remote Mode 1
+# (`ssh <mac>` then `herdr`).
+#
+# This script INSTRUCTS and VERIFIES. It does NOT change system settings for
+# you: enabling Remote Login, editing sshd_config, and installing Tailscale are
+# deliberate human actions (they need System Settings / sudo). The script runs
+# the strongest check it can after each step and gates on your confirmation.
+#
+# It is RESUMABLE: safe to Ctrl-C and re-run — it resumes at the first
+# incomplete step. Run it ON THE MAC.
+#
+# Usage:
+#   herd-phone-access-walkthrough
+#   (or: bash ~/.local/bin/herd-phone-access-walkthrough)
+#
+# (bash 3.2 compatible.)
+
+set -euo pipefail
+
+TASK="herd-phone-access"
+STATE_FILE="$HOME/.config/herd/${TASK}-walkthrough.state"
+mkdir -p "$(dirname "$STATE_FILE")"
+
+done_through() { [ -f "$STATE_FILE" ] && cat "$STATE_FILE" || echo 0; }
+mark() { echo "$1" > "$STATE_FILE"; }
+step() {  # step <n> <title>
+  [ "$(done_through)" -ge "$1" ] && { echo "✓ step $1 already done — skipping"; return 1; }
+  echo ""; echo "────────────────────────────────────────"
+  echo "── Step $1: $2"
+  echo "────────────────────────────────────────"
+  return 0
+}
+confirm() { read -r -p "   $1 [y/N]: " a; [ "$a" = y ] || [ "$a" = Y ]; }
+
+echo "Herdr phone-access setup — Tailscale + hardened SSH (Mode 1)."
+echo "Runs on the Mac. Resumable: Ctrl-C and re-run any time."
+
+# ── Step 1: Tailscale on the Mac ──────────────────────────────────────────
+if step 1 "Install Tailscale on this Mac and log in"; then
+  echo "   Install from https://tailscale.com/download/mac (App Store or standalone),"
+  echo "   open it, and log in. Tailscale's free Personal plan covers one person's"
+  echo "   own devices — no team needed."
+  if command -v tailscale >/dev/null 2>&1; then
+    echo "   (tailscale CLI detected: $(command -v tailscale))"
+  else
+    echo "   NOTE: the CLI may live at /Applications/Tailscale.app/Contents/MacOS/Tailscale"
+    echo "   — the GUI app is enough; CLI is optional."
+  fi
+  confirm "Tailscale installed and logged in on the Mac?" || { echo "stopping — resume later"; exit 0; }
+  mark 1
+fi
+
+# ── Step 2: Tailscale on the phone ────────────────────────────────────────
+if step 2 "Install Tailscale on the phone, same account"; then
+  echo "   Install the Tailscale app on the phone and log into the SAME account as"
+  echo "   the Mac. Both devices then share one private tailnet."
+  confirm "Phone on the same tailnet as the Mac?" || { echo "stopping — resume later"; exit 0; }
+  mark 2
+fi
+
+# ── Step 3: find the Mac's Tailscale name/IP (agent-verifiable) ───────────
+if step 3 "Identify the Mac's Tailscale address"; then
+  TS_BIN=""
+  command -v tailscale >/dev/null 2>&1 && TS_BIN="tailscale"
+  [ -z "$TS_BIN" ] && [ -x "/Applications/Tailscale.app/Contents/MacOS/Tailscale" ] \
+    && TS_BIN="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+  if [ -n "$TS_BIN" ]; then
+    if "$TS_BIN" status >/dev/null 2>&1; then
+      echo "   ✓ Tailscale is up. This Mac's addresses:"
+      "$TS_BIN" ip -4 2>/dev/null | sed 's/^/     /' || true
+      "$TS_BIN" status 2>/dev/null | head -1 | sed 's/^/     /' || true
+      echo "   Use the 100.x.y.z IP or the magic-DNS name (…ts.net) from the phone."
+      mark 3
+    else
+      echo "   ✗ Tailscale CLI present but not connected. Open the app and connect, then re-run."
+      exit 1
+    fi
+  else
+    echo "   Could not auto-detect the CLI. Read the Mac's address from the Tailscale"
+    echo "   menu-bar app (an IP like 100.x.y.z or a name like your-mac.<tailnet>.ts.net)."
+    confirm "Noted the Mac's Tailscale address?" || { echo "stopping — resume later"; exit 0; }
+    mark 3
+  fi
+fi
+
+# ── Step 4: enable Remote Login (SSH server) on the Mac ───────────────────
+if step 4 "Enable Remote Login on the Mac"; then
+  echo "   System Settings → General → Sharing → Remote Login → ON."
+  echo "   (Behind Tailscale this is only reachable from your own devices.)"
+  if command -v systemsetup >/dev/null 2>&1 && systemsetup -getremotelogin 2>/dev/null | grep -qi "on"; then
+    echo "   ✓ verified: Remote Login is On."
+    mark 4
+  else
+    echo "   (Could not auto-confirm — 'systemsetup -getremotelogin' needs admin, or it's off.)"
+    confirm "Remote Login is now ON?" || { echo "stopping — resume later"; exit 0; }
+    mark 4
+  fi
+fi
+
+# ── Step 5: harden sshd to key-only (manual sudo edit) ────────────────────
+if step 5 "Harden SSH to key-only auth"; then
+  echo "   Edit /etc/ssh/sshd_config (sudo) and set:"
+  echo "       PasswordAuthentication no"
+  echo "   then restart Remote Login (toggle it off/on in Sharing, or"
+  echo "   'sudo launchctl kickstart -k system/com.openssh.sshd')."
+  echo "   This script will NOT edit sshd_config for you — that's a deliberate sudo change."
+  # Honest verification: sshd -T reports the effective config.
+  if command -v sshd >/dev/null 2>&1 && sudo -n sshd -T 2>/dev/null | grep -qi "^passwordauthentication no"; then
+    echo "   ✓ verified: effective sshd config has passwordauthentication no."
+    mark 5
+  else
+    echo "   (Could not auto-verify without sudo. Check yourself:"
+    echo "       sudo sshd -T | grep -i passwordauthentication   # expect: no )"
+    confirm "sshd now refuses password auth (key-only)?" || { echo "stopping — resume later"; exit 0; }
+    mark 5
+  fi
+fi
+
+# ── Step 6: generate a phone key + authorize it (manual, secret by name) ──
+if step 6 "Put the phone's PUBLIC key in authorized_keys"; then
+  echo "   In the phone SSH client (JuiceSSH / Termius / ConnectBot), generate a"
+  echo "   key pair — passphrase-protected and biometric-locked, kept LOCAL to the"
+  echo "   device (no cloud key-sync). Copy its PUBLIC key only."
+  echo "   Add that public key as a new line in the Mac's ~/.ssh/authorized_keys."
+  echo "   The PRIVATE key never leaves the phone; this script never handles it."
+  AK="$HOME/.ssh/authorized_keys"
+  if [ -f "$AK" ]; then
+    n=$(grep -c . "$AK" 2>/dev/null || echo 0)
+    echo "   ✓ ~/.ssh/authorized_keys exists ($n key line(s)). Confirm the phone key is one of them."
+  else
+    echo "   ✗ ~/.ssh/authorized_keys does not exist yet — add the phone's public key to create it."
+  fi
+  confirm "Phone's public key is in ~/.ssh/authorized_keys?" || { echo "stopping — resume later"; exit 0; }
+  mark 6
+fi
+
+# ── Step 7: connect from the phone and open Herdr ─────────────────────────
+if step 7 "Connect from the phone and run herdr"; then
+  echo "   From the phone SSH client, connect to the Mac's Tailscale address, then:"
+  echo "       herdr"
+  echo "   The same persistent session opens. Glance at the sidebar — answer any"
+  echo "   'blocked' agent — detach with ctrl+b q. (Samsung DeX gives a full-screen view.)"
+  echo "   TIP: add the host to the phone client / ~/.ssh/config so it's one tap."
+  confirm "Reached Herdr from the phone over Tailscale?" || { echo "stopping — resume later"; exit 0; }
+  mark 7
+  echo ""
+  echo "🎉 Done. Phone check-ins are set up — all over Tailscale, no public SSH exposure."
+fi
+
+echo ""
+echo "Security checklist (keep true):"
+echo "  • Tailscale on both devices — SSH never on the public internet"
+echo "  • PasswordAuthentication no on the Mac (key-only)"
+echo "  • Phone key passphrase- + biometric-locked, kept local (no cloud sync)"
+echo "  • Private key never leaves the phone"
