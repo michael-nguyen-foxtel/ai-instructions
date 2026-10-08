@@ -112,6 +112,7 @@ Reviews the diff against team conventions and the originating spec. Creates a PR
 | `/resolving-merge-conflicts` | In-progress merge/rebase conflict — hunk by hunk |
 | `/security-audit` | Check code and dependencies for vulnerabilities |
 | `/dependency-check` | Evaluate whether to add a package |
+| `/retro` | After a run — grade a session transcript, suggest steering/skill/check/tooling improvements |
 | `/qa-build` | Push the current branch to QA for a staging build |
 
 ### Productivity Skills
