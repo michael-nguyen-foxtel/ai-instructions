@@ -40,7 +40,15 @@ If token limits reduce, apply these changes in order (least disruptive first):
 - Trim testing-conventions to just the rules (remove the examples and anti-patterns)
 
 ### Tier 2 — Moderate effort, minor behaviour change
-- Move product steering to per-repo `.kiro/steering/` (CLI loads on demand when `cd`-ing into a repo)
+- Move product steering to per-repo `.kiro/steering/` (CLI loads on demand when `cd`-ing
+  into a repo), saving ~1.9k always-on on non-product sessions. **Caveat (measured
+  2026-10-12):** the product repos (magneto-*, hawk-*) ALREADY carry their own
+  `.kiro/steering/` with `product.md`, `domain.md`, `tech.md`, etc. So this is a
+  *reconcile/merge* of the global `product-hubbl.md` / `product-watchafl-watchnrl.md`
+  into each repo's existing `product.md`, one repo at a time — NOT a clean `git mv`, or
+  you create two drifting product docs per repo. Also resolve first: `.kiro` is gitignored
+  in the widgets repos (local-only, won't survive a clone) but committed in the
+  web-server repos — so "repo-level" is only durable in two of the four.
 - Reduce model-invoked skill descriptions to single-line summaries
 - Move knowledge bases to on-demand reads (remove auto-loading)
 
@@ -50,12 +58,20 @@ If token limits reduce, apply these changes in order (least disruptive first):
 - Consolidate the two product steering files into one with a product selector key
 
 ### Current overhead estimate
+Measured 2026-10-12 (steering by `wc -w` × 1.3; schemas estimated, host-injected).
+
 | Component | ~Tokens | % of 128k |
 |-----------|---------|-----------|
-| Steering docs (5) | ~2,000 | 1.6% |
-| Skill descriptions (25) | ~1,500 | 1.2% |
-| Knowledge bases (auto-loaded) | ~500 | 0.4% |
-| System prompt + tool schemas | ~15,000 | 11.7% |
-| **Total fixed overhead** | **~19,000** | **~15%** |
+| Steering docs (14) | ~14,400 | 11.3% |
+| MCP tool schemas (Fallow, Atlassian, Playwright, git, …) | ~15,000 | 11.7% |
+| Skill descriptions (~33) | ~1,500 | 1.2% |
+| Knowledge bases (pointer only; bodies load on demand) | ~400 | 0.3% |
+| **Total fixed overhead** | **~31,000** | **~24%** |
 
-The system prompt and tool schemas are the largest fixed cost and aren't under our control. Steering + skills are small — only worth compressing if limits drop below 64k.
+The two big always-on costs are MCP tool schemas (~15k, injected per turn whether used
+or not — trim by disabling unused MCP servers in a session, not by writing more) and
+steering (~14.4k, fully under our control). Steering has grown ~7x since the first
+estimate — the largest single docs are `task-routing` (~3.7k), `herdr` (~1.9k),
+`output-style` (~1.4k), and the two product docs (~1.9k combined). Building MCP servers
+*raises* always-on cost (a schema is as always-on as steering); it buys typed tools and
+safety boundaries, not a smaller window.
