@@ -2,3 +2,7 @@
 # These are on-disk working documents, not part of the versioned skills/steering
 # mirror this repo tracks. See README "Architecture".
 .kiro/
+
+# Playwright-MCP scratch output (console logs, page snapshots) — transient
+# session captures, never repo content.
+.playwright-mcp/
