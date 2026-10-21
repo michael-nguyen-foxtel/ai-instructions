@@ -31,6 +31,21 @@ description: CI/CD and infrastructure conventions. Use when working on GitHub Ac
 - Feature detection that requires install (e.g., `pnpm run | grep`) — use `node -e` to read package.json directly
 - Scripts named for a tool they no longer use (e.g., `test:jest` running Vitest) — can't rename if shared workflows call by name, but flag as tech debt
 
+## Tooling
+
+### yq / jq — structured config
+
+Query and edit structured config with these rather than `grep`/`sed` (precise, format-aware, won't corrupt the file). Both use **jq syntax** — learn one, use both.
+
+- **jq owns JSON** — API responses, `package.json`, `aws ... --output json` piped output, coverage files.
+- **yq owns YAML and everything else** — GitHub Actions workflows, EB `.ebextensions`, `pnpm-workspace.yaml`, `.goreleaser.yaml`, docker-compose; also reads XML/TOML/CSV/properties.
+- **yq is the only safe in-place YAML editor** — it preserves comments and formatting on write (`yq -i '.foo = "bar"' file.yml`); `sed` corrupts structure, jq can't read YAML.
+- Prefer a targeted query over reading a whole file into context (e.g. `yq '.jobs.ci-cd.steps[0].uses' workflow.yml`).
+
+**Our `yq` is the Go build** (`mikefarah/yq`, installed via Homebrew) — jq-compatible syntax. NOT the Python `yq`, which is a different jq-wrapper with different ergonomics. Verify with `yq --version` (expect `https://github.com/mikefarah/yq`).
+
+**YAML gotcha:** a bare `on:` key (GitHub Actions triggers) parses specially under YAML 1.1 — quote it: `yq '.["on"] | keys' workflow.yml`.
+
 ## AWS
 
 - **Profile**: `foxsports-web-powerdev-185314292360` for most operations
