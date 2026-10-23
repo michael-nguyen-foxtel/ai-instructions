@@ -186,3 +186,8 @@ Honesty about what you couldn't verify beats false confidence.
 - `dependency-check` — evaluating a package before adding it
 - `diagnosing-bugs` — when a documented pattern still misbehaves
 - `code-review` — the browser-support check uses the same compat sources
+
+## Adapted from
+
+[addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) (MIT), reworked to
+lead with the Context7-first hard rule from `task-routing`.

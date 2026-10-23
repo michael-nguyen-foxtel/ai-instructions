@@ -262,3 +262,8 @@ git worktree remove ../quicksilver-WEB-4601-ts-foundation
 This workflow is heavily based on [Matt Pocock's Skills](https://github.com/mattpocock/skills) ([aihero.dev/skills](https://www.aihero.dev/skills)) — a practical skill system for engineers who want to use AI without giving up their standards. The main flow (grill → spec → tickets → implement → review), the rounds-based grilling, vertical-slice tickets with blocking edges, wayfinder for large efforts, and the writing-for-agents reference are all adapted from his work.
 
 MIT licensed. Adapted for Jira, Kiro CLI, and our team's conventions.
+
+Additional skills are adapted from two other MIT-licensed collections:
+
+- [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) — `constraint-driven-development` (reworked to gate on Fallow, our `@fsa-streamotion` ESLint/stylelint config, and Jest/RTL), `source-driven-development` (built on our Context7-first rule), and `deprecation-and-migration` (tied to the FISO version coupling) are adapted from it, and the fresh-context doubt step in `grilling` draws on its `doubt-driven-development`.
+- [cursor/pstack](https://github.com/cursor/plugins/tree/main/pstack) by [@poteto](https://x.com/poteto) — the `principles` library and the "attack the premise" step in `task-routing` are adapted from its principle set.

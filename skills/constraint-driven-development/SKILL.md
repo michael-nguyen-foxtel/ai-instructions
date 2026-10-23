@@ -313,3 +313,10 @@ by the next person who hits it.
 - `tdd` — the suite coverage constraints measure
 - `cicd-conventions` — building the pipeline these constraints run in
 - `qa-build` — the staging deploy where axe runs
+
+## Adapted from
+
+[addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) (MIT), reworked to
+gate on this stack's toolchain — Fallow, the `@fsa-streamotion` ESLint/stylelint config,
+Jest/RTL, axe, and the Context7 browser-support check — with `CONSTRAINTS.md` at the repo
+root.

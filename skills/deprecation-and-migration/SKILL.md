@@ -228,3 +228,8 @@ maintain it, or deprecate it with a concrete migration plan. It can't stay in li
 - `implement-from-spec` — each migration phase as a thin vertical slice
 - product steering (Releasing) — the exact FISO repin/redeploy sequence
 - `diagnosing-bugs` — when a migration surfaces a behavior difference
+
+## Adapted from
+
+[addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) (MIT), with the
+schema-migration depth trimmed and a FISO version-coupling section added for this stack.
