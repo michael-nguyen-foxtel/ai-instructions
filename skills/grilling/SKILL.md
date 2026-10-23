@@ -39,6 +39,29 @@ Think like an adversarial QA engineer. For each acceptance criterion and decisio
 
 Present any newly discovered edge cases as additional questions. If they reveal gaps, add them as a final round.
 
+### Fresh-context doubt (for high-stakes or unfamiliar decisions)
+
+The pass above runs in *your* context — the same context that formed the plan, so it
+shares the plan's blind spots. When a decision is high-stakes (production auth, an
+irreversible migration, a security-sensitive path) or sits in code you don't fully
+understand, escalate to a **fresh-context reviewer biased to disprove**, not approve:
+
+1. **Extract the smallest reviewable unit** — the ARTIFACT (the proposal in 3–5 sentences,
+   or the diff) and the CONTRACT (the constraints it must satisfy). Strip your reasoning.
+2. **Dispatch a fresh-context reviewer** — the `pr-reviewer` subagent, or any Gate-2
+   subagent, with an adversarial prompt: *"Find what's wrong with this. Assume the author
+   is overconfident. Look for unstated assumptions, unhandled edge cases, hidden shared
+   state, ways the contract is violated. Do NOT validate."* Pass **ARTIFACT + CONTRACT
+   only — never your conclusion**; handing over the conclusion biases it toward agreement.
+3. **Reconcile.** The reviewer's output is data, not verdict — re-read the artifact against
+   each finding. Classify in order: contract-misread (fix the contract, re-loop) →
+   actionable (change it) → valid trade-off (document it) → noise (the reviewer lacked
+   context). Stop after findings go trivial or 3 cycles — three unresolved cycles is
+   information about the plan, surface it rather than grinding a fourth.
+
+This is grilling turned on your *own* reasoning while course-correction is still cheap —
+distinct from `/code-review`, which is a verdict on a finished artifact.
+
 ## Done
 
 The session is done when the frontier is empty and the adversarial pass surfaces nothing new. Do not act on it until the user confirms you have reached a shared understanding.
