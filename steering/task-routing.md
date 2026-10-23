@@ -191,7 +191,8 @@ These are signs you've entered a fix loop. If you catch yourself doing any of th
 If an approach has failed twice, you MUST:
 1. Stop trying that approach
 2. Explain what you tried, what failed, and what you think the root cause is
-3. Either propose a fundamentally different approach or ask the user for guidance
+3. **Attack the premise.** Two fixes sharing one premise both failing the same way is evidence against the premise, not a reason for a third fix. Write down the one sentence every failed attempt assumed, then make an observation that would come out differently if it were false — before you write any more code. (Full rule: the `principles/attack-the-premise` skill.)
+4. Either propose a fundamentally different approach or ask the user for guidance
 
 Never make a third attempt at the same approach with minor variations.
 
